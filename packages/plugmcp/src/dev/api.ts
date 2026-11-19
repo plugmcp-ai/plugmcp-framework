@@ -531,7 +531,10 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, hub: 
       }
       case "POST /tools": {
         const body = await readBody<{ name: string; description?: string; view?: boolean }>(req);
-        return json(res, 200, addToolToProject(project, { name: body.name ?? "", description: body.description ?? "", view: body.view === true })), true;
+        const added = addToolToProject(project, { name: body.name ?? "", description: body.description ?? "", view: body.view === true });
+        // Load the new code now. Waiting for the file watcher can leave the old tool list in place for a moment.
+        await context.reload().catch(() => undefined);
+        return json(res, 200, added), true;
       }
       case "POST /tools/describe": {
         const body = await readBody<{ name?: string; description?: string }>(req);
