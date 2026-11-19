@@ -23,6 +23,10 @@ export interface JsonSchema {
 export type Info =
   | {
       ok: true;
+      /** Short name of this MCP server inside the folder. */
+      id: string;
+      /** The server file, from the folder plugmcp dev runs in. */
+      file: string;
       project: string;
       entry: string;
       name: string;
@@ -36,7 +40,13 @@ export type Info =
       calls: number;
       failed: number;
     }
-  | { ok: false; project: string; entry: string; error: string };
+  | { ok: false; id: string; file: string; mcpUrl: string; project: string; entry: string; error: string };
+
+/** The folder plugmcp dev runs in, and every MCP server in it. */
+export interface Workspace {
+  name: string;
+  servers: Info[];
+}
 
 export interface ToolResult {
   content?: Array<{ type: string; text?: string }>;
@@ -128,8 +138,15 @@ export interface Logs {
 
 const BASE = "/__studio/api";
 
+// The MCP server every request is about. The Studio works on one at a time.
+let mcp = "";
+export const setMcp = (id: string) => {
+  mcp = id;
+};
+const address = (path: string) => `${BASE}${path}${mcp ? `${path.includes("?") ? "&" : "?"}mcp=${encodeURIComponent(mcp)}` : ""}`;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, init);
+  const response = await fetch(address(path), init);
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status}).`);
   return body;
@@ -139,7 +156,11 @@ const post = <T,>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 export const api = {
-  chatUrl: `${BASE}/chat`,
+  get chatUrl() {
+    return address("/chat");
+  },
+  workspace: () => request<Workspace>("/workspace"),
+  createMcp: (body: { name: string; description: string }) => post<{ id: string }>("/workspace/servers", body),
   info: () => request<Info>("/info"),
   call: (server: string, name: string, args: Record<string, unknown>) =>
     post<{ result: ToolResult; ms: number }>("/call", { server, name, arguments: args }),

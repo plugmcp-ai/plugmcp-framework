@@ -187,7 +187,7 @@ export class PlugServer {
         }
         // `plugmcp dev` listens here to show calls in the Studio. Nothing listens in production.
         const report = (globalThis as Record<symbol, unknown>)[CALLS] as ((entry: unknown) => void) | undefined;
-        report?.({ tool: config.name, input, ms: Math.round(performance.now() - started), result });
+        report?.({ server: this.info.name, tool: config.name, input, ms: Math.round(performance.now() - started), result });
         return result;
       };
       // The SDK passes the context alone when a tool has no input schema.

@@ -1818,6 +1818,37 @@ button.card {
   border-color: rgb(242 239 233 / 0.45);
   color: var(--ink);
 }
+.node-server-other {
+  box-shadow:
+    inset 0 0 0 1px rgb(242 239 233 / 0.14),
+    0 12px 32px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+}
+.node-server-added {
+  box-shadow:
+    inset 0 0 0 1px rgb(242 239 233 / 0.11),
+    0 12px 32px rgb(0 0 0 / 0.35);
+}
+.node-server-added .node-kind {
+  color: var(--ink-45);
+}
+.node-open {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(52 211 153 / 0.12);
+  font-size: 10.5px;
+}
+.node-add-wide {
+  width: 320px;
+  height: 118px;
+}
+.react-flow__node {
+  cursor: grab;
+}
+.react-flow__node.dragging {
+  cursor: grabbing;
+}
 .node-title-lg {
   font-size: 16px;
 }
@@ -2123,4 +2154,76 @@ button.card {
     min-width: 0;
     border-left: 0;
   }
+}
+
+/* ---- MCP servers ---- */
+.switch-btn {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.server-card {
+  position: relative;
+}
+.switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--sheet-2);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.09),
+    0 18px 48px rgb(0 0 0 / 0.6);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.switch-menu .nav-label {
+  padding: 6px 8px 4px;
+  margin: 0;
+}
+.switch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.switch-item:hover,
+.switch-item.is-active {
+  background: rgb(255 255 255 / 0.05);
+}
+.switch-new {
+  margin-top: 4px;
+  color: var(--ink-70);
+}
+.mcp-card {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.mcp-card.is-current {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 153 255 / 0.55),
+    0 0 0 4px rgb(0 153 255 / 0.08);
+}
+.mcp-head {
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hair);
 }

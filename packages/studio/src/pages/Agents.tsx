@@ -29,8 +29,25 @@ const TEMPLATES: Array<{ name: string; description: string; instructions: string
   },
 ];
 
+/** An agent cannot run without a model, so a key comes first. */
+function NeedsKey() {
+  return (
+    <div className="page">
+      <PageHead title="Agents" lede="An agent runs on a model, with your own key. Add one to make and test agents." />
+      <div className="panel keygate">
+        <h2 style={{ fontSize: 18 }}>Add your model key first</h2>
+        <p className="muted" style={{ margin: "4px 0 18px" }}>
+          Pick a provider and paste your key. It stays on this machine, you pay the provider directly and nothing passes through PlugMCP.
+        </p>
+        <KeySetup />
+      </div>
+    </div>
+  );
+}
+
 export function Agents() {
-  const { agents, server, tools } = useStudio();
+  const { agents, server, tools, model, settings } = useStudio();
+  if (settings && !model) return <NeedsKey />;
   return (
     <div className="page">
       <PageHead
@@ -161,6 +178,7 @@ export function AgentEditor({ id }: { id: string }) {
   }, [draft, model]);
 
   if (!server) return null;
+  if (settings && !model) return <NeedsKey />;
   const current = loaded === id || created.current === id;
   if (!current && !isNew && !existing && agentsReady) {
     return (

@@ -43,7 +43,7 @@ export function NewTool({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="New tool" lede={`Adds the tool to ${server?.entry ?? "your server file"}. It is live as soon as it is written.`} onClose={onClose}>
+    <Modal title="New tool" lede={`Adds the tool to the ${server?.title ?? server?.name ?? "current"} MCP server, in ${server?.file ?? "its server file"}. It is live as soon as it is written.`} onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();

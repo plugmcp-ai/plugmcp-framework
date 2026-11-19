@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { api } from "./api";
+import { api, setMcp } from "./api";
 import type { Agent, Info, RemoteServer, Settings, Tool } from "./api";
 
 export type Ok = Extract<Info, { ok: true }>;
@@ -23,6 +23,75 @@ interface Studio {
   setSettings: (next: Settings) => void;
   reloadRemote: () => Promise<void>;
   reloadAgents: () => Promise<void>;
+}
+
+interface Space {
+  /** Name of the folder plugmcp dev runs in. */
+  name: string;
+  /** Every MCP server in the folder. */
+  servers: Info[];
+  /** The MCP server the Studio is working on. */
+  current: string;
+  switchTo: (id: string) => void;
+  reload: () => Promise<void>;
+}
+
+const SpaceContext = createContext<Space | null>(null);
+
+export function useWorkspace(): Space {
+  const value = useContext(SpaceContext);
+  if (!value) throw new Error("useWorkspace needs WorkspaceProvider.");
+  return value;
+}
+
+const remembered = () => {
+  try {
+    return localStorage.getItem("plugmcp.mcp") ?? "";
+  } catch {
+    return "";
+  }
+};
+
+/** Knows every MCP server in the folder and which one is open. Everything inside works on that one. */
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [name, setName] = useState("");
+  const [servers, setServers] = useState<Info[]>([]);
+  const [picked, setPicked] = useState(remembered);
+
+  const reload = useCallback(
+    () =>
+      api.workspace().then((next) => {
+        setName(next.name);
+        setServers((prev) => (JSON.stringify(prev) === JSON.stringify(next.servers) ? prev : next.servers));
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    void reload().catch(() => undefined);
+    const timer = setInterval(() => document.visibilityState === "visible" && void reload().catch(() => undefined), 3000);
+    return () => clearInterval(timer);
+  }, [reload]);
+
+  const switchTo = useCallback((id: string) => {
+    try {
+      localStorage.setItem("plugmcp.mcp", id);
+    } catch {
+      // The choice then lasts until the page is closed.
+    }
+    setPicked(id);
+  }, []);
+
+  // Fall back to the first server when the remembered one is gone.
+  const current = servers.length && !servers.some((item) => item.id === picked) ? (servers[0]?.id ?? "") : picked;
+  setMcp(current);
+
+  const value = useMemo(() => ({ name, servers, current, switchTo, reload }), [name, servers, current, switchTo, reload]);
+  return (
+    <SpaceContext.Provider value={value}>
+      <StudioProvider key={current}>{children}</StudioProvider>
+    </SpaceContext.Provider>
+  );
 }
 
 const Context = createContext<Studio | null>(null);

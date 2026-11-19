@@ -98,7 +98,7 @@ async function main() {
   ${bold("PlugMCP")} ${dim(`ready in ${dev.readyMs} ms`)}
 
   ${dim("Studio")}   ${blue(`http://localhost:${dev.port}`)}
-  ${dim("MCP")}      ${blue(`http://localhost:${dev.port}/mcp`)}
+${dev.servers.map((server) => `  ${dim("MCP")}      ${blue(server.mcpUrl)}${dev.servers.length > 1 ? dim(`  ${server.id}`) : ""}`).join("\n")}
 
   ${dim("Edit server.ts or a file in views/ and it reloads. Ctrl+C to stop.")}
 `);

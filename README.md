@@ -92,14 +92,18 @@ That is the whole integration. The SDK bundles the view into one self-contained 
 
 | Page | What it does |
 |---|---|
-| **Overview** | The server at a glance: tools, views, calls, what to do next, and similar servers already in the directory. |
+| **Overview** | Every MCP server in the folder as a card, with **New MCP server** to start another. Below it, the open server at a glance: tools, views, calls and what to do next. |
 | **Tools** | Every tool. Run it with a form built from its schema, see the result and the view, read the schema, and edit the tool and view code in place. **New tool** writes one from a description, or adds a blank one. |
-| **Playground** | A conversation with your server. Tool calls and views appear inline, as they would in a chat client. Switch models, turn tools on and off, or talk to one of your agents. |
-| **Agents** | Make an agent from a prompt, a model and a choice of tools. Test it in a chat beside the form. **Get the code** gives a Claude Agent SDK script and saves it to `agents/`. |
-| **Canvas** | A map of the project: agents, servers, tools and views, and what uses what. |
+| **Playground** | A conversation with your server. Ask for a tool or an MCP app and it is written into your project and run in the chat. Tool calls and views appear inline, as they would in a chat client. Switch models, turn tools on and off, or talk to one of your agents. |
+| **Agents** | Needs a model key. Make an agent from a prompt, a model and a choice of tools. Test it in a chat beside the form. **Get the code** gives a Claude Agent SDK script and saves it to `agents/`. |
+| **Canvas** | Each MCP server with its tools under it, every tool with its description and inputs. Drag cards where you want them. Click a tool to edit its description, run it and change its code beside the canvas. |
 | **Logs** | Every tool call the dev server handled, from the Studio, your editor or any other client, with input, result and time. |
 | **Connect** | Install buttons for Cursor and VS Code, commands for Claude Code and Codex, and the steps to go live. |
 | **Directory** | Search [plugmcp.ai](https://plugmcp.ai/mcp). Add any hosted server to your playground and your agents. |
+
+### More than one MCP server
+
+A folder can hold several MCP servers. The one in `server.ts` answers at `/mcp`. Each folder in `servers/` is another one, with its own `server.ts` and `views/`, and answers at `/mcp/<name>`. **New MCP server** in the Studio creates one; the switcher at the top of the sidebar chooses which one the Studio works on. Build one on its own with `plugmcp build --root servers/<name>`.
 
 Keys are read from your project's `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`) or saved from the Studio to `~/.plugmcp/keys.json`.
 
@@ -123,7 +127,7 @@ No server to start and no network hop. Scaffold a working example with `npx crea
 
 | Command | |
 |---|---|
-| `plugmcp dev` | Run the server and the Studio. Reloads on save. |
+| `plugmcp dev` | Run every MCP server in the folder and the Studio. Reloads on save. |
 | `plugmcp build` | Bundle the server and its views into `dist/`. |
 | `plugmcp start` | Serve the build over Streamable HTTP at `/mcp`. Add `--stdio` for stdio. Reads `PORT`. |
 | `plugmcp search <words>` | Search the PlugMCP directory. |

@@ -52,6 +52,7 @@ const calls: CallRecord[] = [];
 let nextId = 1;
 let total = 0;
 let failed = 0;
+const perServer = new Map<string, { total: number; failed: number }>();
 
 const clip = (value: unknown): unknown => {
   const text = JSON.stringify(value) ?? "";
@@ -61,16 +62,24 @@ const clip = (value: unknown): unknown => {
 export function recordCall(entry: Omit<CallRecord, "id" | "at">): void {
   total += 1;
   if (!entry.ok) failed += 1;
+  const count = perServer.get(entry.server) ?? { total: 0, failed: 0 };
+  count.total += 1;
+  if (!entry.ok) count.failed += 1;
+  perServer.set(entry.server, count);
   calls.unshift({ ...entry, input: clip(entry.input), output: clip(entry.output), id: nextId++, at: Date.now() });
   if (calls.length > MAX) calls.length = MAX;
 }
 
 export const callLog = () => ({ total, failed, calls });
 
+/** How many calls one server has handled since the dev server started. */
+export const callsFor = (server: string) => perServer.get(server) ?? { total: 0, failed: 0 };
+
 export function clearCalls(): void {
   calls.length = 0;
   total = 0;
   failed = 0;
+  perServer.clear();
 }
 
 /**
@@ -79,6 +88,7 @@ export function clearCalls(): void {
  */
 export function listenForCalls(): void {
   (globalThis as Record<symbol, unknown>)[Symbol.for("plugmcp.calls")] = (entry: {
+    server?: string;
     tool: string;
     ms: number;
     input: unknown;
@@ -86,7 +96,7 @@ export function listenForCalls(): void {
   }) =>
     recordCall({
       tool: entry.tool,
-      server: "local",
+      server: entry.server ?? "local",
       ms: entry.ms,
       ok: entry.result.isError !== true,
       input: entry.input,

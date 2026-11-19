@@ -8,17 +8,19 @@ import {
   IconMessage,
   IconPlayerPlay,
   IconPlus,
+  IconSitemap,
   IconStack2,
   IconTool,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { CallRecord, DirectoryServer } from "../api";
-import { useStudio } from "../state";
-import { CopyButton, Empty, Glyph, SectionTitle, ago } from "../ui";
+import { useStudio, useWorkspace } from "../state";
+import { CopyButton, Empty, Glyph, PageHead, SectionTitle, ago, plural } from "../ui";
 
-export function Home({ onNew }: { onNew: () => void }) {
+export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => void }) {
   const { server, model, agents, remote } = useStudio();
+  const space = useWorkspace();
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [similar, setSimilar] = useState<DirectoryServer[]>([]);
   const total = server?.calls ?? 0;
@@ -51,19 +53,61 @@ export function Home({ onNew }: { onNew: () => void }) {
 
   return (
     <div className="page">
-      <div className="page-head">
+      <PageHead
+        title={space.name || "Workspace"}
+        lede={`${plural(space.servers.length, "MCP server")} in this folder. Each one is a set of tools behind its own address. Pick one to work on it, or start another.`}
+      >
+        <button type="button" className="btn btn-primary" onClick={onNewMcp}>
+          <IconPlus size={15} stroke={2} /> New MCP server
+        </button>
+      </PageHead>
+
+      <div className="cards">
+        {space.servers.map((item) => {
+          const current = item.id === space.current;
+          return (
+            <button key={item.id} type="button" className={`card mcp-card${current ? " is-current" : ""}`} onClick={() => space.switchTo(item.id)} aria-pressed={current}>
+              <div className="row">
+                <Glyph name={item.ok ? item.name : item.id} />
+                <div className="grow">
+                  <div className="card-title truncate">{item.ok ? (item.title ?? item.name) : item.id}</div>
+                  <div className="row-sub mono truncate">{item.mcpUrl.replace("http://127.0.0.1", "localhost")}</div>
+                </div>
+                <span className={`dot ${item.ok ? "dot-ok" : "dot-error"}`} />
+              </div>
+              <p className="card-text clamp-2">{item.ok ? (item.description ?? "No description yet.") : "The server file has an error. Open it to see what is wrong."}</p>
+              <div className="card-foot">
+                <span className="row">
+                  {item.ok ? <span className="pill">{plural(item.tools.length, "tool")}</span> : <span className="pill pill-fault">Error</span>}
+                  {item.ok && item.tools.some((tool) => tool.view) ? <span className="pill pill-signal">{plural(item.tools.filter((tool) => tool.view).length, "view")}</span> : null}
+                </span>
+                <span className={current ? "small" : "muted small"} style={current ? { color: "var(--signal-2)" } : undefined}>{current ? "Open now" : "Open"}</span>
+              </div>
+            </button>
+          );
+        })}
+        <button type="button" className="card card-dashed" onClick={onNewMcp}>
+          <IconPlus size={18} stroke={1.75} />
+          New MCP server
+        </button>
+      </div>
+
+      <div className="page-head mcp-head">
         <div className="hero grow">
           <Glyph name={server.title ?? server.name} large />
           <div className="grow">
             <h1 className="truncate">{server.title ?? server.name}</h1>
-            <p className="lede" style={{ marginTop: 2 }}>{server.description ?? `Running from ${server.entry} in ${server.project}.`}</p>
+            <p className="lede" style={{ marginTop: 2 }}>{server.description ?? `Running from ${server.file}.`}</p>
           </div>
         </div>
         <div className="row-wrap">
-          <a className="btn btn-outline" href="#/playground">
-            <IconMessage size={15} stroke={1.75} /> Open the playground
+          <a className="btn btn-outline" href="#/canvas">
+            <IconSitemap size={15} stroke={1.75} /> Canvas
           </a>
-          <button type="button" className="btn btn-primary" onClick={onNew}>
+          <a className="btn btn-outline" href="#/playground">
+            <IconMessage size={15} stroke={1.75} /> Playground
+          </a>
+          <button type="button" className="btn btn-secondary" onClick={onNew}>
             <IconPlus size={15} stroke={2} /> New tool
           </button>
         </div>

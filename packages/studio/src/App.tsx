@@ -11,12 +11,14 @@ import {
   IconPlugConnected,
   IconPlus,
   IconRobot,
+  IconSelector,
   IconSitemap,
   IconStack2,
   IconTool,
 } from "@tabler/icons-react";
 import type { Icon } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { NewMcp } from "./NewMcp";
 import { NewTool } from "./NewTool";
 import { AgentEditor, Agents } from "./pages/Agents";
 import { CanvasPage } from "./pages/CanvasPage";
@@ -27,7 +29,7 @@ import { Logs } from "./pages/Logs";
 import { Playground } from "./pages/Playground";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Tools } from "./pages/Tools";
-import { StudioProvider, useStudio } from "./state";
+import { WorkspaceProvider, useStudio, useWorkspace } from "./state";
 import { Empty, Glyph, Mark, useCopy, useRoute } from "./ui";
 
 interface NavItem {
@@ -39,9 +41,9 @@ interface NavItem {
 
 export function App() {
   return (
-    <StudioProvider>
+    <WorkspaceProvider>
       <Shell />
-    </StudioProvider>
+    </WorkspaceProvider>
   );
 }
 
@@ -51,9 +53,15 @@ function Shell() {
   const page = route[0] ?? "home";
   const [menu, setMenu] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addingMcp, setAddingMcp] = useState(false);
+  const [picker, setPicker] = useState(false);
   const [copied, copy] = useCopy();
+  const space = useWorkspace();
 
-  useEffect(() => setMenu(false), [route]);
+  useEffect(() => {
+    setMenu(false);
+    setPicker(false);
+  }, [route]);
 
   const sections: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -61,12 +69,17 @@ function Shell() {
       items: [
         { id: "home", label: "Overview", icon: IconHome },
         { id: "tools", label: "Tools", icon: IconTool, badge: tools.length },
-        { id: "playground", label: "Playground", icon: IconMessage },
-        { id: "agents", label: "Agents", icon: IconRobot, badge: agents.length },
         { id: "canvas", label: "Canvas", icon: IconSitemap },
       ],
     },
-    { label: "Observe", items: [{ id: "logs", label: "Logs", icon: IconListDetails, badge: server?.calls || undefined }] },
+    {
+      label: "Test",
+      items: [
+        { id: "playground", label: "Playground", icon: IconMessage },
+        { id: "agents", label: "Agents", icon: IconRobot, badge: agents.length },
+        { id: "logs", label: "Logs", icon: IconListDetails, badge: server?.calls || undefined },
+      ],
+    },
     {
       label: "Share",
       items: [
@@ -94,16 +107,53 @@ function Shell() {
         </a>
 
         <div className="server-card">
-          <div className="server-card-top">
+          <button type="button" className="server-card-top switch-btn" onClick={() => setPicker((open) => !open)} aria-expanded={picker} aria-label="Choose an MCP server">
             <Glyph name={server?.name ?? info?.project ?? "?"} />
             <div className="grow">
               <div className="server-name truncate">{server?.title ?? server?.name ?? info?.project ?? "Starting"}</div>
               <div className="server-state">
                 <span className={`dot dot-${status}`} />
-                {offline ? "Stopped" : broken ? "Error in the code" : server ? "Running" : "Starting"}
+                {offline ? "Stopped" : broken ? "Error in the code" : server ? "MCP server, running" : "Starting"}
               </div>
             </div>
-          </div>
+            <IconSelector size={15} stroke={1.75} className="muted" />
+          </button>
+          {picker ? (
+            <div className="switch-menu">
+              <p className="nav-label">MCP servers in {space.name || "this folder"}</p>
+              {space.servers.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`switch-item${item.id === space.current ? " is-active" : ""}`}
+                  onClick={() => {
+                    setPicker(false);
+                    space.switchTo(item.id);
+                  }}
+                >
+                  <Glyph name={item.ok ? item.name : item.id} />
+                  <span className="grow">
+                    <span className="truncate" style={{ display: "block" }}>{item.ok ? (item.title ?? item.name) : item.id}</span>
+                    <span className="row-sub" style={{ display: "block" }}>{item.ok ? `${item.tools.length} tool${item.tools.length === 1 ? "" : "s"}` : "Error in the code"}</span>
+                  </span>
+                  {item.id === space.current ? <IconCheck size={14} stroke={2} /> : null}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="switch-item switch-new"
+                onClick={() => {
+                  setPicker(false);
+                  setAddingMcp(true);
+                }}
+              >
+                <span className="icon-tile" style={{ width: 28, height: 28 }}>
+                  <IconPlus size={15} stroke={2} />
+                </span>
+                New MCP server
+              </button>
+            </div>
+          ) : null}
           {address ? (
             <button type="button" className="addr" title="Copy the MCP address" onClick={() => copy(address)}>
               <span className="grow truncate">{address.replace("http://", "")}</span>
@@ -151,7 +201,13 @@ function Shell() {
             <button type="button" className="btn btn-ghost btn-icon menu-btn" onClick={() => setMenu(true)} aria-label="Open menu">
               <IconMenu2 size={18} />
             </button>
-            <span className="truncate hide-sm">{info?.project ?? "Project"}</span>
+            {space.servers.length > 1 ? (
+              <>
+                <span className="truncate hide-sm">{space.name || "Workspace"}</span>
+                <IconChevronRight size={13} className="hide-sm" />
+              </>
+            ) : null}
+            <span className="truncate hide-sm">{server?.title ?? server?.name ?? info?.project ?? "MCP server"}</span>
             <IconChevronRight size={13} className="hide-sm" />
             {sub ? (
               <>
@@ -177,7 +233,7 @@ function Shell() {
           <div className="banner" role="alert">
             <span className="dot dot-error" style={{ marginTop: 6 }} />
             <div className="grow">
-              <strong style={{ fontWeight: 500 }}>{broken.entry} has an error.</strong> Fix it and save. The Studio shows the last working version until then.
+              <strong style={{ fontWeight: 500 }}>{broken.file} has an error.</strong> Fix it and save. The Studio shows the last working version until then.
               <pre>{broken.error}</pre>
             </div>
           </div>
@@ -194,7 +250,7 @@ function Shell() {
             broken ? (
               <div className="page">
                 <Empty icon={IconTool} title="Waiting for a working server file">
-                  The Studio opens as soon as {broken.entry} loads without errors.
+                  The Studio opens as soon as {broken.file} loads without errors.
                 </Empty>
               </div>
             ) : null
@@ -204,10 +260,10 @@ function Shell() {
               <div hidden={page !== "playground"} style={{ flex: 1, minHeight: 0, display: page === "playground" ? "flex" : undefined }}>
                 <Playground />
               </div>
-              {page === "home" ? <Home onNew={() => setAdding(true)} /> : null}
+              {page === "home" ? <Home onNew={() => setAdding(true)} onNewMcp={() => setAddingMcp(true)} /> : null}
               {page === "tools" ? <Tools selected={route[1]} onNew={() => setAdding(true)} /> : null}
               {page === "agents" ? route[1] ? <AgentEditor id={route[1]} /> : <Agents /> : null}
-              {page === "canvas" ? <CanvasPage selected={route[1]} onNew={() => setAdding(true)} /> : null}
+              {page === "canvas" ? <CanvasPage selected={route[1]} onNew={() => setAdding(true)} onNewMcp={() => setAddingMcp(true)} /> : null}
               {page === "logs" ? <Logs /> : null}
               {page === "directory" ? <DirectoryPage /> : null}
               {page === "connect" ? <Connect /> : null}
@@ -218,6 +274,7 @@ function Shell() {
       </div>
 
       {adding ? <NewTool onClose={() => setAdding(false)} /> : null}
+      {addingMcp ? <NewMcp onClose={() => setAddingMcp(false)} /> : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { hostHeaderValidation, originValidation } from "@modelcontextprotocol/node";
 import type { PlugServer } from "../index.js";
 import { slugify } from "../index.js";
@@ -12,10 +12,19 @@ import type { McpResult, RemoteServer, ToolInfo } from "./chat.js";
 import { GUIDE, draftTool } from "./generate.js";
 import { PROVIDERS, publicSettings, readSettings, writeSettings } from "./keys.js";
 import type { ProviderId } from "./keys.js";
-import { listViews } from "./project.js";
+import { SERVER_ID, listViews } from "./project.js";
 import type { Project } from "./project.js";
-import { callLog, clearCalls, readAgents, writeAgents } from "./store.js";
+import { callLog, callsFor, clearCalls, readAgents, writeAgents } from "./store.js";
 import type { Agent } from "./store.js";
+
+/** Everything `plugmcp dev` serves: one or more MCP servers in one folder. */
+export interface Hub {
+  home: string;
+  projects: () => Project[];
+  /** Look at the folder again, after a server was added. */
+  rescan: () => Project[];
+  contextFor: (project: Project) => ApiContext;
+}
 
 export interface ApiContext {
   project: Project;
@@ -302,53 +311,104 @@ function agentCode(agent: Agent, project: Project, serverName: string, remote: R
   return lines.join("\n");
 }
 
+/** What the Studio shows about one MCP server: its details and its tools. */
+async function describe(context: ApiContext) {
+  const { project } = context;
+  const base = { id: project.id, project: project.name, entry: project.entry, file: `${project.rel}${project.entry}`, mcpUrl: context.mcpUrl() };
+  let server: PlugServer;
+  try {
+    server = await context.loadServer();
+  } catch (error) {
+    return { ...base, ok: false as const, error: message(error) };
+  }
+  const local: RemoteServer = { name: "local", url: context.mcpUrl() };
+  const client = await connect(local);
+  let tools: ToolInfo[];
+  try {
+    tools = await listTools(client, local, true);
+  } finally {
+    await client.close();
+  }
+  const views = listViews(project);
+  const unused = Object.keys(views).filter((name) => !tools.some((tool) => tool.name === name));
+  const count = callsFor(server.info.name);
+  return {
+    ...base,
+    ok: true as const,
+    name: server.info.name,
+    title: server.info.title ?? null,
+    description: server.info.description ?? null,
+    version: server.info.version ?? "0.1.0",
+    tools: tools.map((tool) => ({ ...tool, viewFile: views[tool.name] ?? null })),
+    unusedViews: unused.map((name) => views[name]),
+    instructions: server.info.instructions ?? null,
+    calls: count.total,
+    failed: count.failed,
+  };
+}
+
+/** Start a new, empty MCP server in servers/<id>/. */
+function createMcp(home: string, input: { name?: string; description?: string }): string {
+  const title = (input.name ?? "").trim();
+  if (!title) throw new Error("Give the MCP server a name.");
+  const id = slugify(title).slice(0, 40).replace(/-+$/, "");
+  if (!SERVER_ID.test(id) || id === "main") throw new Error("Use letters and numbers in the name.");
+  const dir = join(home, "servers", id);
+  if (existsSync(dir)) throw new Error(`An MCP server named ${id} already exists.`);
+  const description = (input.description ?? "").trim();
+  mkdirSync(join(dir, "views"), { recursive: true });
+  writeFileSync(
+    join(dir, "server.ts"),
+    [
+      `import { createServer } from "plugmcp";`,
+      `import { z } from "zod";`,
+      ``,
+      `const server = createServer({`,
+      `  name: ${JSON.stringify(id)},`,
+      ...(title !== id ? [`  title: ${JSON.stringify(title)},`] : []),
+      ...(description ? [`  description: ${JSON.stringify(description)},`] : []),
+      `});`,
+      ``,
+      `// Tools go here. Add them in the Studio, or write server.tool(...) yourself.`,
+      ``,
+      `export default server;`,
+      ``,
+    ].join("\n"),
+  );
+  return id;
+}
+
 /** Handle one request under /__studio/api/. Returns false when the path is not ours. */
-export async function handleApi(req: IncomingMessage, res: ServerResponse, context: ApiContext): Promise<boolean> {
+export async function handleApi(req: IncomingMessage, res: ServerResponse, hub: Hub): Promise<boolean> {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (!url.pathname.startsWith("/__studio/api/")) return false;
   // Only this machine's own Studio page may use the API. Views run in a
   // sandboxed frame with a null origin and are refused here too.
   if (!checkHost(req, res) || !checkOrigin(req, res)) return true;
   const route = `${req.method} ${url.pathname.slice("/__studio/api".length)}`;
+  const projects = hub.projects();
+  // Every request names the MCP server it is about. Without a name it is the first one.
+  const picked = projects.find((item) => item.id === url.searchParams.get("mcp")) ?? projects[0];
+  if (!picked) return json(res, 500, { error: "No MCP server in this folder." }), true;
+  const context = hub.contextFor(picked);
   const { project } = context;
   const local: RemoteServer = { name: "local", url: context.mcpUrl() };
 
   try {
     switch (route) {
-      case "GET /info": {
-        let server: PlugServer;
-        try {
-          server = await context.loadServer();
-        } catch (error) {
-          return json(res, 200, { ok: false, project: project.name, entry: project.entry, error: message(error) }), true;
-        }
-        const client = await connect(local);
-        let tools: ToolInfo[];
-        try {
-          tools = await listTools(client, local, true);
-        } finally {
-          await client.close();
-        }
-        const views = listViews(project);
-        const unused = Object.keys(views).filter((name) => !tools.some((tool) => tool.name === name));
-        return (
-          json(res, 200, {
-            ok: true,
-            project: project.name,
-            entry: project.entry,
-            name: server.info.name,
-            title: server.info.title ?? null,
-            description: server.info.description ?? null,
-            version: server.info.version ?? "0.1.0",
-            mcpUrl: context.mcpUrl(),
-            tools: tools.map((tool) => ({ ...tool, viewFile: views[tool.name] ?? null })),
-            unusedViews: unused.map((name) => views[name]),
-            instructions: server.info.instructions ?? null,
-            calls: callLog().total,
-            failed: callLog().failed,
-          }),
-          true
-        );
+      case "GET /info":
+        return json(res, 200, await describe(context)), true;
+      case "GET /workspace": {
+        // Look again each time, so a server folder added or removed by hand shows up.
+        const servers = await Promise.all(hub.rescan().map((item) => describe(hub.contextFor(item))));
+        return json(res, 200, { name: basename(hub.home), servers }), true;
+      }
+      case "POST /workspace/servers": {
+        const id = createMcp(hub.home, await readBody<{ name?: string; description?: string }>(req));
+        const made = hub.rescan().find((item) => item.id === id);
+        if (!made) throw new Error("The new server was written but could not be found. Restart plugmcp dev.");
+        await hub.contextFor(made).loadServer();
+        return json(res, 200, { id }), true;
       }
       case "POST /call": {
         const body = await readBody<{ server?: string; name: string; arguments?: Record<string, unknown> }>(req);
@@ -378,7 +438,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         }
       }
       case "GET /settings":
-        return json(res, 200, publicSettings(project.root)), true;
+        return json(res, 200, publicSettings(project.home)), true;
       case "POST /settings": {
         const body = await readBody<{ provider?: ProviderId; model?: string; key?: string | null; customBaseUrl?: string }>(req);
         const settings = readSettings();
@@ -389,12 +449,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         if (body.provider && typeof body.key === "string" && body.key.trim()) settings.keys[body.provider] = body.key.trim();
         if (body.customBaseUrl !== undefined) settings.customBaseUrl = body.customBaseUrl.trim() || undefined;
         writeSettings(settings);
-        return json(res, 200, publicSettings(project.root)), true;
+        return json(res, 200, publicSettings(project.home)), true;
       }
       case "GET /models": {
         const provider = url.searchParams.get("provider") as ProviderId;
         if (!(provider in PROVIDERS)) throw new Error("Unknown provider.");
-        return json(res, 200, { models: await listModels(provider, project.root) }), true;
+        return json(res, 200, { models: await listModels(provider, project.home) }), true;
       }
       case "POST /chat": {
         const body = await readBody<Parameters<typeof streamChat>[1] & { agent?: string; tools?: string[] | null; instructions?: string; build?: boolean }>(req);
@@ -411,7 +471,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         const build = body.build === true && !agent && !body.instructions ? builder(context, local) : null;
         const instructions = body.instructions ?? agent?.instructions ?? server.info.instructions;
         await streamChat(res, body, {
-          root: project.root,
+          root: project.home,
           instructions: build ? [build.system, instructions ? `The server's own instructions:\n${instructions}` : ""].filter(Boolean).join("\n\n") : instructions,
           extra: build?.tools,
           allow: body.tools !== undefined ? body.tools : (agent?.tools ?? null),
@@ -507,7 +567,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         const variable = serverVariable(source);
         if (!variable) throw new Error(`Could not find "const server = createServer(...)" in ${project.entry}.`);
         const draft = await draftTool({
-          root: project.root,
+          root: project.home,
           provider: body.provider,
           model: body.model,
           description: body.description.trim(),

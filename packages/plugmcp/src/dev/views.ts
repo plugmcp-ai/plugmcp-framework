@@ -36,8 +36,10 @@ export function viewEntryPlugin(views: () => Record<string, string>): Plugin {
     },
     load(id) {
       if (!id.startsWith(VIEW_ENTRY_PREFIX)) return null;
-      const tool = id.slice(VIEW_ENTRY_PREFIX.length).replace(/\.js$/, "");
-      const file = views()[tool];
+      const key = id.slice(VIEW_ENTRY_PREFIX.length).replace(/\.js$/, "");
+      const file = views()[key];
+      // In a folder with several servers the key is "<server>~<tool>".
+      const tool = key.slice(key.lastIndexOf("~") + 1);
       if (!file) return `document.getElementById("root").textContent = "No view file for ${tool}.";`;
       return [
         `import { createElement } from "react";`,

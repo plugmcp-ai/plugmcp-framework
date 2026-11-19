@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,6 +113,27 @@ describe("dev server", () => {
       expect((await api(`/file?path=${encodeURIComponent(path)}`)).status).toBe(400);
     }
   });
+
+  it("adds a second MCP server with its own tools and address", async () => {
+    const json = { "content-type": "application/json" };
+    const name = `Test ${Date.now()}`;
+    const { id } = (await (await api("/workspace/servers", { method: "POST", headers: json, body: JSON.stringify({ name, description: "Made by a test." }) })).json()) as { id: string };
+    try {
+      expect((await api(`/tools?mcp=${id}`, { method: "POST", headers: json, body: JSON.stringify({ name: "ping", description: "Answer.", view: true }) })).status).toBe(200);
+      const { servers } = (await (await api("/workspace")).json()) as { servers: Array<{ id: string; mcpUrl: string; title?: string; tools?: Array<{ name: string; view: string | null }> }> };
+      expect(servers[0]?.id).toBe("main");
+      const made = servers.find((item) => item.id === id);
+      expect(made).toMatchObject({ title: name, mcpUrl: `http://127.0.0.1:${dev.port}/mcp/${id}` });
+      expect(made?.tools).toMatchObject([{ name: "ping", view: `ui://${id}/ping.html` }]);
+      // The main server does not see the other server's tool.
+      const main = (await (await api("/info")).json()) as { tools: Array<{ name: string }> };
+      expect(main.tools.some((tool) => tool.name === "ping")).toBe(false);
+      const { html } = (await (await api(`/view?mcp=${id}&uri=ui://${id}/ping.html`)).json()) as { html: string };
+      expect(html).toContain(`/@plugmcp-view/${id}~ping.js`);
+    } finally {
+      rmSync(resolve(example, "servers", id), { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("saves an agent, writes its code and removes it", async () => {
     const post = (body: unknown) => api("/agents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
