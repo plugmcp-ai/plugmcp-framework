@@ -1,0 +1,23 @@
+{
+  "name": "{{name}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "{{about}}",
+  "scripts": {
+    "dev": "plugmcp dev --open",
+    "build": "plugmcp build",
+    "start": "plugmcp start"
+  },
+  "dependencies": {
+    "plugmcp": "{{plugmcp}}",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0 || ^6.0.0 || ^7.0.0"
+  }
+}

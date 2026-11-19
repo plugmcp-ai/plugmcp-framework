@@ -274,7 +274,6 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         const params = new URLSearchParams({ q: url.searchParams.get("q") ?? "" });
         if (url.searchParams.get("remote") === "1") params.set("remote", "1");
         if (url.searchParams.get("page")) params.set("page", url.searchParams.get("page") as string);
-        if (!params.get("q")) params.set("sort", "stars");
         return json(res, 200, await directory(`/servers?${params}`)), true;
       }
       case "POST /tools": {
@@ -288,7 +287,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
           json(res, 200, {
             name: server.info.name,
             slug,
-            snippets: installSnippets(slug, context.mcpUrl()),
+            snippets: installSnippets(slug, context.mcpUrl().replace("127.0.0.1", "localhost")),
             badge: readmeBadge(slug),
             directoryPage: directoryPage(slug),
             submitUrl: `${DIRECTORY_URL}/mcp/submit`,

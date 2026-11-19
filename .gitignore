@@ -8,3 +8,7 @@ studio-dist
 *.tsbuildinfo
 *.log
 .DS_Store
+.tmp
+packages/plugmcp/README.md
+packages/plugmcp/LICENSE
+packages/create-plugmcp/LICENSE

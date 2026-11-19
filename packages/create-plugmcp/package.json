@@ -1,0 +1,43 @@
+{
+  "name": "create-plugmcp",
+  "version": "0.1.0",
+  "description": "Create an MCP server or MCP App in one command. Local Studio with a tool canvas and chat included.",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://plugmcp.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plugmcp-ai/sdk.git",
+    "directory": "packages/create-plugmcp"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "mcp-apps",
+    "create",
+    "scaffold",
+    "template",
+    "claude",
+    "chatgpt"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "bin": {
+    "create-plugmcp": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node -e \"\"",
+    "typecheck": "node --check index.js",
+    "lint": "node --check index.js",
+    "test": "node -e \"\"",
+    "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE','LICENSE')\""
+  }
+}
