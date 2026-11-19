@@ -155,6 +155,7 @@ export const api = {
   directory: (q: string, remote: boolean) =>
     request<{ total: number; servers: DirectoryServer[] }>(`/directory?q=${encodeURIComponent(q)}${remote ? "&remote=1" : ""}`),
   addTool: (body: { name: string; description: string; view: boolean }) => post<{ files: string[] }>("/tools", body),
+  describeTool: (name: string, description: string) => post<{ saved: boolean }>("/tools/describe", { name, description }),
   ship: () => request<Ship>("/ship"),
   generate: (body: { description: string; view: boolean; provider: string; model: string }) =>
     post<{ name: string; files: string[] }>("/generate", body),

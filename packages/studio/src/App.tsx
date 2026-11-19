@@ -82,7 +82,7 @@ function Shell() {
   const status = offline ? "offline" : broken ? "error" : server ? "ok" : "loading";
   const address = server ? server.mcpUrl.replace("127.0.0.1", "localhost") : "";
   const fixed = ["tools", "playground", "canvas"].includes(page) || (page === "agents" && Boolean(route[1]));
-  const sub = page === "agents" && route[1] ? (route[1].startsWith("new") ? "New agent" : (agents.find((agent) => agent.id === route[1])?.name ?? route[1])) : page === "tools" ? route[1] : undefined;
+  const sub = page === "agents" && route[1] ? (route[1].startsWith("new") ? "New agent" : (agents.find((agent) => agent.id === route[1])?.name ?? route[1])) : page === "tools" || page === "canvas" ? route[1] : undefined;
 
   return (
     <div className={`shell${menu ? " menu-open" : ""}`} onClick={(event) => menu && event.target === event.currentTarget && setMenu(false)}>
@@ -207,7 +207,7 @@ function Shell() {
               {page === "home" ? <Home onNew={() => setAdding(true)} /> : null}
               {page === "tools" ? <Tools selected={route[1]} onNew={() => setAdding(true)} /> : null}
               {page === "agents" ? route[1] ? <AgentEditor id={route[1]} /> : <Agents /> : null}
-              {page === "canvas" ? <CanvasPage onNew={() => setAdding(true)} /> : null}
+              {page === "canvas" ? <CanvasPage selected={route[1]} onNew={() => setAdding(true)} /> : null}
               {page === "logs" ? <Logs /> : null}
               {page === "directory" ? <DirectoryPage /> : null}
               {page === "connect" ? <Connect /> : null}

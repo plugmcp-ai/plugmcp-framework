@@ -1,4 +1,4 @@
-import { IconArrowLeft, IconBrowser, IconMessage, IconPlayerPlay, IconPlus, IconSearch, IconTool } from "@tabler/icons-react";
+import { IconArrowLeft, IconBrowser, IconList, IconMessage, IconPencil, IconPlayerPlay, IconPlus, IconSearch, IconSitemap, IconTool } from "@tabler/icons-react";
 import { useState } from "react";
 import { Editor } from "../Editor";
 import { SchemaForm } from "../SchemaForm";
@@ -31,6 +31,14 @@ export function Tools({ selected, onNew }: { selected?: string; onNew: () => voi
               <IconPlus size={14} stroke={2} /> New tool
             </button>
           </div>
+          <Seg
+            value="list"
+            onChange={(next: "list" | "canvas") => next === "canvas" && go(selected ? `/canvas/${selected}` : "/canvas")}
+            options={[
+              { id: "list", label: (<><IconList size={14} stroke={1.75} /> List</>) },
+              { id: "canvas", label: (<><IconSitemap size={14} stroke={1.75} /> Canvas</>) },
+            ]}
+          />
           {tools.length > 5 ? (
             <div className="search">
               <IconSearch size={15} stroke={1.75} />
@@ -88,7 +96,59 @@ export function Tools({ selected, onNew }: { selected?: string; onNew: () => voi
 
 type Tab = "test" | "code" | "view" | "schema";
 
-function ToolDetail({ tool, entry, onSaved }: { tool: Tool; entry: string; onSaved: () => void }) {
+/** Change a tool's description without opening the code. */
+function Description({ tool, onSaved }: { tool: Tool; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(tool.description ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!editing) {
+    return (
+      <p className="muted" style={{ marginTop: 6, maxWidth: "72ch" }}>
+        {tool.description ?? "No description yet. Add one so a model knows when to call this tool."}{" "}
+        {tool.local ? (
+          <button type="button" className="link small" style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }} onClick={() => setEditing(true)}>
+            <IconPencil size={12} stroke={1.75} style={{ verticalAlign: -1 }} /> Edit
+          </button>
+        ) : null}
+      </p>
+    );
+  }
+  return (
+    <form
+      className="stack"
+      style={{ marginTop: 8, gap: 8 }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setBusy(true);
+        setError(null);
+        api
+          .describeTool(tool.name, draft)
+          .then(() => {
+            onSaved();
+            setEditing(false);
+          })
+          .catch((cause: unknown) => setError(errorText(cause)))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <textarea className="input" rows={3} value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Description" autoFocus />
+      <p className="hint">The model reads this to decide when to call the tool.</p>
+      {error ? <p className="small fault">{error}</p> : null}
+      <div className="row">
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !draft.trim()}>
+          {busy ? "Saving" : "Save"}
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: Tool; entry: string; onSaved: () => void; back?: string }) {
   const [tab, setTab] = useState<Tab>("test");
   const tabs: Array<{ id: Tab; label: string }> = [{ id: "test", label: "Test" }];
   if (tool.local) tabs.push({ id: "code", label: "Code" });
@@ -99,8 +159,8 @@ function ToolDetail({ tool, entry, onSaved }: { tool: Tool; entry: string; onSav
     <div className="detail">
       <div className="detail-head">
         <div className="grow">
-          <button type="button" className="btn btn-ghost btn-sm only-sm" style={{ marginLeft: -10, marginBottom: 6 }} onClick={() => go("/tools")}>
-            <IconArrowLeft size={14} /> All tools
+          <button type="button" className="btn btn-ghost btn-sm only-sm" style={{ marginLeft: -10, marginBottom: 6 }} onClick={() => go(back)}>
+            <IconArrowLeft size={14} /> {back === "/tools" ? "All tools" : "Canvas"}
           </button>
           <div className="row">
             <h1 className="truncate">{tool.name}</h1>
@@ -108,9 +168,7 @@ function ToolDetail({ tool, entry, onSaved }: { tool: Tool; entry: string; onSav
             {tool.view ? <span className="pill pill-signal">Has a view</span> : null}
             {!tool.local ? <span className="pill">{tool.server}</span> : null}
           </div>
-          <p className="muted" style={{ marginTop: 6, maxWidth: "72ch" }}>
-            {tool.description ?? "No description yet. Add one so a model knows when to call this tool."}
-          </p>
+          <Description key={tool.description} tool={tool} onSaved={onSaved} />
         </div>
         <a className="btn btn-outline" href="#/playground">
           <IconMessage size={15} stroke={1.75} /> Try in chat

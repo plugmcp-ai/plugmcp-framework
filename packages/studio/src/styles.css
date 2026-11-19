@@ -1713,9 +1713,14 @@ button.card {
 
 /* ---- Canvas ---- */
 .canvas {
-  position: relative;
+  display: flex;
   flex: 1;
   min-height: 0;
+}
+.canvas-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 .canvas .react-flow {
   background: var(--paper);
@@ -1726,42 +1731,131 @@ button.card {
   left: 20px;
   z-index: 5;
   display: flex;
+  align-items: center;
   gap: 8px;
 }
-.canvas-legend {
+.canvas-hint {
   position: absolute;
-  bottom: 16px;
-  left: 20px;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
-  display: flex;
-  gap: 14px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: 10px;
   background: rgb(18 18 18 / 0.9);
   box-shadow: inset 0 0 0 1px var(--hair-2);
   font-size: 12px;
   color: var(--ink-55);
+  white-space: nowrap;
 }
-.canvas-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.inspector {
+  position: relative;
+  width: min(600px, 46%);
+  min-width: 420px;
+  overflow-y: auto;
+  border-left: 1px solid var(--hair);
+  background: var(--paper);
 }
-.swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 3px;
+.inspector .detail {
+  padding: 20px 22px 48px;
+}
+.inspector .detail-head {
+  padding-right: 34px;
+}
+.inspector .test-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.inspector-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
 }
 .node {
-  width: 232px;
+  width: 250px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgb(242 239 233 / 0.08), rgb(242 239 233 / 0.04));
+  background: linear-gradient(135deg, rgb(32 32 32), rgb(22 22 22));
   box-shadow:
     inset 0 0 0 1px rgb(242 239 233 / 0.11),
     0 12px 32px rgb(0 0 0 / 0.35);
-  backdrop-filter: blur(8px);
   transition: box-shadow 150ms;
+}
+.node-server {
+  width: 320px;
+  padding: 14px 16px 30px;
+  box-shadow:
+    inset 0 0 0 1px rgb(52 211 153 / 0.35),
+    0 12px 32px rgb(0 0 0 / 0.35);
+}
+.node-tool {
+  height: 152px;
+  display: flex;
+  flex-direction: column;
+}
+.node-tool.is-picked,
+.node-tool.is-picked:hover {
+  box-shadow:
+    inset 0 0 0 1.5px var(--signal),
+    0 0 0 4px rgb(0 153 255 / 0.14),
+    0 12px 32px rgb(0 0 0 / 0.35);
+}
+.node-add {
+  height: 152px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed rgb(242 239 233 / 0.2);
+  color: var(--ink-55);
+  font-size: 13px;
+  cursor: pointer;
+}
+.node-add:hover {
+  border-color: rgb(242 239 233 / 0.45);
+  color: var(--ink);
+}
+.node-title-lg {
+  font-size: 16px;
+}
+.node-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 8px;
+  overflow: hidden;
+  max-height: 30px;
+}
+.node-server .node-foot {
+  margin-top: 0;
+}
+.node-chip {
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgb(242 239 233 / 0.06);
+  font-size: 11px;
+  color: var(--ink-70);
+}
+.node-view-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #c4a1ff;
+}
+.node-port {
+  position: absolute;
+  bottom: 7px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-45);
 }
 .node-tool,
 .node-agent {
@@ -2018,7 +2112,15 @@ button.card {
   .table td {
     padding: 10px 12px;
   }
-  .canvas-legend {
+  .canvas-hint {
     display: none;
+  }
+  .canvas.has-pick .canvas-stage {
+    display: none;
+  }
+  .inspector {
+    width: 100%;
+    min-width: 0;
+    border-left: 0;
   }
 }

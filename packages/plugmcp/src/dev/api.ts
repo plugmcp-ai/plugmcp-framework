@@ -472,6 +472,33 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         const body = await readBody<{ name: string; description?: string; view?: boolean }>(req);
         return json(res, 200, addToolToProject(project, { name: body.name ?? "", description: body.description ?? "", view: body.view === true })), true;
       }
+      case "POST /tools/describe": {
+        const body = await readBody<{ name?: string; description?: string }>(req);
+        const name = body.name ?? "";
+        const description = (body.description ?? "").trim();
+        if (!TOOL_NAME.test(name)) throw new Error("Unknown tool.");
+        if (!description) throw new Error("Write a description.");
+        const entryPath = join(project.root, project.entry);
+        const source = readFileSync(entryPath, "utf8");
+        const start = new RegExp(`name:\\s*["'\`]${name}["'\`]`).exec(source);
+        if (!start) throw new Error(`Could not find ${name} in ${project.entry}.`);
+        // Look only inside this tool's own options, up to the next tool.
+        const rest = source.slice(start.index);
+        const next = rest.slice(1).search(/\.tool\s*\(/);
+        const own = next === -1 ? rest : rest.slice(0, next + 1);
+        const found = /description:\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\$]|\\.)*`)/.exec(own);
+        if (!found) throw new Error(`The description of ${name} is not a plain string. Change it on the Code tab.`);
+        const at = start.index + found.index;
+        writeFileSync(entryPath, `${source.slice(0, at)}description: ${JSON.stringify(description)}${source.slice(at + found[0].length)}`);
+        try {
+          await context.reload();
+        } catch (error) {
+          writeFileSync(entryPath, source);
+          await context.reload().catch(() => undefined);
+          throw new Error(`That did not load, so nothing was changed. (${message(error)})`);
+        }
+        return json(res, 200, { saved: true }), true;
+      }
       case "POST /generate": {
         const body = await readBody<{ description?: string; view?: boolean; provider?: ProviderId; model?: string }>(req);
         if (!body.description?.trim()) throw new Error("Say what the tool should do.");
