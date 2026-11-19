@@ -6,6 +6,7 @@ import type { z } from "zod";
 export const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
 
 const MARK = Symbol.for("plugmcp.server");
+const CALLS = Symbol.for("plugmcp.calls");
 
 export interface ViewCsp {
   connectDomains?: string[];
@@ -176,12 +177,18 @@ export class PlugServer {
         ...(uri ? { _meta: { ui: { resourceUri: uri }, "openai/outputTemplate": uri } } : {}),
       };
       const run = async (input: unknown, ctx: unknown): Promise<CallToolResult> => {
+        const started = performance.now();
+        let result: CallToolResult;
         try {
-          return toToolResult(await handler(input, ctx));
+          result = toToolResult(await handler(input, ctx));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          return { content: [{ type: "text", text: message }], isError: true };
+          result = { content: [{ type: "text", text: message }], isError: true };
         }
+        // `plugmcp dev` listens here to show calls in the Studio. Nothing listens in production.
+        const report = (globalThis as Record<symbol, unknown>)[CALLS] as ((entry: unknown) => void) | undefined;
+        report?.({ tool: config.name, input, ms: Math.round(performance.now() - started), result });
+        return result;
       };
       // The SDK passes the context alone when a tool has no input schema.
       const callback = config.input ? run : (ctx: unknown) => run({}, ctx);

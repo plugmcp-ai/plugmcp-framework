@@ -8,6 +8,7 @@ import { toAgentSdk } from "./agent.js";
 import { saveAccountKey } from "./cli/cloud.js";
 import { startDev, type DevServer } from "./dev/dev.js";
 import { listViews, readEnvFile, resolveProject } from "./dev/project.js";
+import { callLog, clearCalls, recordCall } from "./dev/store.js";
 import { createServer } from "./index.js";
 import { directoryPage, installSnippets, readmeBadge } from "./install.js";
 
@@ -103,5 +104,43 @@ describe("dev server", () => {
   it("rejects a bad tool name before writing anything", async () => {
     const response = await api("/tools", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Bad Name" }) });
     expect(response.status).toBe(400);
+  });
+
+  it("opens the server file and nothing outside the project's code", async () => {
+    const file = (await (await api("/file?path=server.ts")).json()) as { content: string };
+    expect(file.content).toContain("createServer");
+    for (const path of [".env", "package.json", "../../package.json", "views/../.env"]) {
+      expect((await api(`/file?path=${encodeURIComponent(path)}`)).status).toBe(400);
+    }
+  });
+
+  it("saves an agent, writes its code and removes it", async () => {
+    const post = (body: unknown) => api("/agents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const name = `Test agent ${Date.now()}`;
+    const { agent } = (await (await post({ name, instructions: "Be brief.", tools: ["get_weather"] })).json()) as { agent: { id: string } };
+    try {
+      expect((await post({ name, instructions: "Again." })).status).toBe(400);
+      const { code, saved } = (await (await api(`/agents/code?id=${agent.id}`)).json()) as { code: string; saved: boolean };
+      expect(saved).toBe(false);
+      expect(code).toContain('from "../server.js"');
+      expect(code).toContain('"mcp__weather__get_weather"');
+      expect(code).toContain('systemPrompt: "Be brief."');
+    } finally {
+      await api(`/agents?id=${agent.id}`, { method: "DELETE" });
+    }
+    const { agents } = (await (await api("/agents")).json()) as { agents: Array<{ id: string }> };
+    expect(agents.some((item) => item.id === agent.id)).toBe(false);
+  });
+});
+
+describe("call log", () => {
+  it("counts calls and failures, newest first", () => {
+    clearCalls();
+    recordCall({ tool: "a", server: "local", ms: 3, ok: true, input: {}, output: "x" });
+    recordCall({ tool: "b", server: "local", ms: 5, ok: false, input: {}, output: "boom" });
+    const log = callLog();
+    expect(log).toMatchObject({ total: 2, failed: 1 });
+    expect(log.calls[0]?.tool).toBe("b");
+    clearCalls();
   });
 });

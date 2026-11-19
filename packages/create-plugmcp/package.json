@@ -1,7 +1,7 @@
 {
   "name": "create-plugmcp",
   "version": "0.1.0",
-  "description": "Create an MCP server or MCP App in one command. Local Studio with a tool canvas and chat included.",
+  "description": "Create an MCP server or MCP App in one command. Local Studio with tool testing, chat and an agent builder included.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://plugmcp.ai",

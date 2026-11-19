@@ -46,5 +46,5 @@ export default function View() {
 
 ## Checking your work
 
-- Call the tool over MCP: `POST /mcp` with a `tools/call` request, or use the Canvas tab in the Studio.
+- Call the tool over MCP: `POST /mcp` with a `tools/call` request, or run it from the Tools page in the Studio.
 - Before building something new, search for an existing server: `npx plugmcp search <words>`.

@@ -8,6 +8,7 @@ import { convertToModelMessages, dynamicTool, isStepCount, jsonSchema, streamTex
 import type { LanguageModel, ToolSet, UIMessage } from "ai";
 import { PROVIDERS, readSettings, resolveKey } from "./keys.js";
 import type { ProviderId } from "./keys.js";
+import { recordCall } from "./store.js";
 
 export interface RemoteServer {
   name: string;
@@ -59,9 +60,9 @@ export async function listTools(client: Client, server: RemoteServer, local: boo
 
 const BASE_URLS = { openrouter: "https://openrouter.ai/api/v1", ollama: "http://localhost:11434/v1" };
 
-function createModel(provider: ProviderId, model: string, key: string | undefined, customBaseUrl: string | undefined): LanguageModel {
+export function createModel(provider: ProviderId, model: string, key: string | undefined, customBaseUrl: string | undefined): LanguageModel {
   if (PROVIDERS[provider].needsKey && !key) {
-    throw new Error(`No ${PROVIDERS[provider].label} key. Add one in the Chat settings or as ${PROVIDERS[provider].env} in .env.`);
+    throw new Error(`No ${PROVIDERS[provider].label} key. Add one in the Studio under Models and keys, or as ${PROVIDERS[provider].env} in .env.`);
   }
   switch (provider) {
     case "openai":
@@ -130,7 +131,13 @@ interface McpResult {
 export async function streamChat(
   res: ServerResponse,
   body: ChatRequest,
-  context: { root: string; servers: Array<{ server: RemoteServer; local: boolean }>; instructions?: string },
+  context: {
+    root: string;
+    servers: Array<{ server: RemoteServer; local: boolean }>;
+    instructions?: string;
+    /** Tool ids the model may call. Leave out for all of them. */
+    allow?: string[] | null;
+  },
 ): Promise<void> {
   const { key } = resolveKey(body.provider, context.root);
   const model = createModel(body.provider, body.model, key, readSettings().customBaseUrl);
@@ -150,11 +157,26 @@ export async function streamChat(
       }
       clients.push(client);
       for (const info of await listTools(client, server, local)) {
+        if (context.allow && !context.allow.includes(info.id)) continue;
         tools[info.id] = dynamicTool({
           description: info.description ?? info.title ?? info.name,
           inputSchema: jsonSchema(info.inputSchema),
-          execute: async (input) =>
-            (await client.callTool({ name: info.name, arguments: (input ?? {}) as Record<string, unknown> })) as McpResult,
+          execute: async (input) => {
+            const started = performance.now();
+            const result = (await client.callTool({ name: info.name, arguments: (input ?? {}) as Record<string, unknown> })) as McpResult;
+            // Local tools report their own calls. Record the ones that ran somewhere else.
+            if (!local) {
+              recordCall({
+                tool: info.name,
+                server: server.name,
+                ms: Math.round(performance.now() - started),
+                ok: result.isError !== true,
+                input,
+                output: result.structuredContent ?? result.content,
+              });
+            }
+            return result;
+          },
           toModelOutput: ({ output }) => {
             const result = output as McpResult;
             const text = (result.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("\n");

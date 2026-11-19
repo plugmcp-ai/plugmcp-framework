@@ -12,12 +12,14 @@ npm run dev
 
 This starts the server and opens the Studio in your browser:
 
-- **Canvas** shows your tools. Select one to test it and see its view.
-- **Chat** talks to your server with your own OpenAI, Anthropic or other key.
+- **Tools** lists your tools. Run one, see its view, and edit its code. New tool writes one from a description.
+- **Playground** talks to your server with your own OpenAI, Anthropic or other key.
+- **Agents** makes an agent from a prompt and your tools, and gives you the code to run it.
+- **Canvas** and **Logs** show how the project fits together and every call it handled.
+- **Connect** has install buttons for Cursor, VS Code, Claude Code and more.
 - **Directory** searches 70,000+ existing servers on [plugmcp.ai](https://plugmcp.ai/mcp).
-- **Ship** has install buttons for Cursor, VS Code, Claude Code and more.
 
-To use the chat, copy `.env.example` to `.env` and add a key, or paste one in the Chat tab.
+To use the playground, copy `.env.example` to `.env` and add a key, or paste one in the Studio.
 
 ## Change it
 

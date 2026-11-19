@@ -32,6 +32,9 @@ export type Info =
       mcpUrl: string;
       tools: Tool[];
       unusedViews: string[];
+      instructions: string | null;
+      calls: number;
+      failed: number;
     }
   | { ok: false; project: string; entry: string; error: string };
 
@@ -95,6 +98,34 @@ export interface Ship {
   hostUrl: string;
 }
 
+export interface Agent {
+  id: string;
+  name: string;
+  description?: string;
+  instructions: string;
+  provider?: string;
+  model?: string;
+  tools: string[] | null;
+  starters?: string[];
+}
+
+export interface CallRecord {
+  id: number;
+  at: number;
+  tool: string;
+  server: string;
+  ms: number;
+  ok: boolean;
+  input: unknown;
+  output: unknown;
+}
+
+export interface Logs {
+  total: number;
+  failed: number;
+  calls: CallRecord[];
+}
+
 const BASE = "/__studio/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -125,4 +156,15 @@ export const api = {
     request<{ total: number; servers: DirectoryServer[] }>(`/directory?q=${encodeURIComponent(q)}${remote ? "&remote=1" : ""}`),
   addTool: (body: { name: string; description: string; view: boolean }) => post<{ files: string[] }>("/tools", body),
   ship: () => request<Ship>("/ship"),
+  generate: (body: { description: string; view: boolean; provider: string; model: string }) =>
+    post<{ name: string; files: string[] }>("/generate", body),
+  file: (path: string) => request<{ path: string; content: string }>(`/file?path=${encodeURIComponent(path)}`),
+  saveFile: (path: string, content: string) => post<{ saved: boolean; error: string | null }>("/file", { path, content }),
+  logs: () => request<Logs>("/logs"),
+  clearLogs: () => request<Logs>("/logs", { method: "DELETE" }),
+  agents: () => request<{ agents: Agent[] }>("/agents"),
+  saveAgent: (agent: Partial<Agent>) => post<{ agent: Agent }>("/agents", agent),
+  removeAgent: (id: string) => request<unknown>(`/agents?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  agentCode: (id: string, save = false) =>
+    request<{ path: string; code: string; saved: boolean }>(`/agents/code?id=${encodeURIComponent(id)}`, save ? { method: "POST" } : undefined),
 };

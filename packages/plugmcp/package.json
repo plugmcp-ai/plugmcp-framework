@@ -1,7 +1,7 @@
 {
   "name": "plugmcp",
   "version": "0.1.0",
-  "description": "Build MCP servers and MCP Apps in one file. Local Studio with a tool canvas, chat with your own key, and the PlugMCP directory built in.",
+  "description": "Build MCP servers, MCP Apps and agents in one place. Local Studio with tool testing, chat with your own key, an agent builder, and the PlugMCP directory built in.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://plugmcp.ai",

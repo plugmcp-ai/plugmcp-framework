@@ -9,6 +9,7 @@ import { isPlugServer } from "../index.js";
 import type { BuildOptions, PlugServer } from "../index.js";
 import { handleApi } from "./api.js";
 import { listViews, resolveProject } from "./project.js";
+import { listenForCalls } from "./store.js";
 import { viewEntryPlugin, viewShell } from "./views.js";
 
 export interface DevOptions {
@@ -79,6 +80,12 @@ export async function startDev(options: DevOptions): Promise<DevServer> {
     return server;
   };
 
+  const reload = async (): Promise<PlugServer> => {
+    vite.moduleGraph.invalidateAll();
+    return loadServer();
+  };
+  listenForCalls();
+
   // In dev a view is a small page that loads its code from this server, so edits hot reload.
   const getViews = (): BuildOptions["views"] => {
     const views: NonNullable<BuildOptions["views"]> = {};
@@ -124,7 +131,7 @@ export async function startDev(options: DevOptions): Promise<DevServer> {
           }
           return;
         }
-        if (await handleApi(req, res, { project, mcpUrl: () => `${origin()}/mcp`, loadServer })) return;
+        if (await handleApi(req, res, { project, mcpUrl: () => `${origin()}/mcp`, loadServer, reload })) return;
         if (hasStudio && path.startsWith("/__studio/")) {
           const file = normalize(join(studio, path.slice("/__studio/".length)));
           if (file.startsWith(studio) && existsSync(file) && statSync(file).isFile()) return sendFile(res, file, true);

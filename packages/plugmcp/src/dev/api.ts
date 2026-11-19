@@ -1,21 +1,26 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { hostHeaderValidation, originValidation } from "@modelcontextprotocol/node";
 import type { PlugServer } from "../index.js";
 import { slugify } from "../index.js";
 import { DIRECTORY_URL, directoryPage, installSnippets, readmeBadge } from "../install.js";
 import { connect, listModels, listTools, streamChat } from "./chat.js";
 import type { RemoteServer, ToolInfo } from "./chat.js";
+import { draftTool } from "./generate.js";
 import { PROVIDERS, publicSettings, readSettings, writeSettings } from "./keys.js";
 import type { ProviderId } from "./keys.js";
 import { listViews } from "./project.js";
 import type { Project } from "./project.js";
+import { callLog, clearCalls, readAgents, writeAgents } from "./store.js";
+import type { Agent } from "./store.js";
 
 export interface ApiContext {
   project: Project;
   mcpUrl: () => string;
   loadServer: () => Promise<PlugServer>;
+  /** Load the server again from disk, ignoring anything cached. Throws when the file is broken. */
+  reload: () => Promise<PlugServer>;
 }
 
 const LOCAL = ["localhost", "127.0.0.1", "[::1]"];
@@ -72,15 +77,44 @@ export async function directory(path: string): Promise<unknown> {
   return body;
 }
 
-function addToolToProject(project: Project, input: { name: string; description: string; view: boolean }) {
-  const name = input.name.trim();
-  if (!/^[a-z][a-z0-9_]{0,63}$/.test(name)) {
+const TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+
+const serverVariable = (source: string) => /(?:const|let|var)\s+(\w+)\s*=\s*createServer\s*\(/.exec(source)?.[1];
+
+/** Put a `server.tool(...)` statement into the server file, and a view file next to it when given. */
+function writeTool(project: Project, tool: { name: string; block: string; view: string }) {
+  if (!TOOL_NAME.test(tool.name)) {
     throw new Error("Use lowercase letters, numbers and underscores, starting with a letter. Example: search_orders");
   }
   const entryPath = join(project.root, project.entry);
   const source = readFileSync(entryPath, "utf8");
-  if (new RegExp(`name:\\s*["'\`]${name}["'\`]`).test(source)) throw new Error(`A tool named ${name} already exists.`);
-  const variable = /(?:const|let|var)\s+(\w+)\s*=\s*createServer\s*\(/.exec(source)?.[1];
+  if (new RegExp(`name:\\s*["'\`]${tool.name}["'\`]`).test(source)) throw new Error(`A tool named ${tool.name} already exists.`);
+  const block = `${tool.block.trim()}\n\n`;
+  const at = source.search(/^export default /m);
+  writeFileSync(entryPath, at === -1 ? `${source.trimEnd()}\n\n${block}` : `${source.slice(0, at)}${block}${source.slice(at)}`);
+  const files = [project.entry];
+  let viewPath: string | null = null;
+  if (tool.view) {
+    if (!existsSync(project.viewsDir)) mkdirSync(project.viewsDir, { recursive: true });
+    const path = join(project.viewsDir, `${tool.name}.tsx`);
+    if (!existsSync(path)) {
+      writeFileSync(path, `${tool.view.trim()}\n`);
+      viewPath = path;
+      files.push(`views/${tool.name}.tsx`);
+    }
+  }
+  /** Put the project back the way it was. */
+  const undo = () => {
+    writeFileSync(entryPath, source);
+    if (viewPath) rmSync(viewPath, { force: true });
+  };
+  return { files, undo };
+}
+
+function addToolToProject(project: Project, input: { name: string; description: string; view: boolean }) {
+  const name = input.name.trim();
+  const source = readFileSync(join(project.root, project.entry), "utf8");
+  const variable = serverVariable(source);
   if (!variable) throw new Error(`Could not find "const server = createServer(...)" in ${project.entry}. Add the tool by hand.`);
   const description = input.description.trim() || "Describe what this tool does and when to use it.";
   const block = [
@@ -94,34 +128,80 @@ function addToolToProject(project: Project, input: { name: string; description: 
     `    return { text };`,
     `  },`,
     `);`,
-    ``,
-    ``,
   ].join("\n");
-  const at = source.search(/^export default /m);
-  const next = at === -1 ? `${source.trimEnd()}\n\n${block}` : `${source.slice(0, at)}${block}${source.slice(at)}`;
-  writeFileSync(entryPath, next);
-  const files = [project.entry];
-  if (input.view) {
-    if (!existsSync(project.viewsDir)) mkdirSync(project.viewsDir, { recursive: true });
-    const viewPath = join(project.viewsDir, `${name}.tsx`);
-    if (!existsSync(viewPath)) {
-      writeFileSync(
-        viewPath,
-        [
-          `import { useTool } from "plugmcp/view";`,
-          ``,
-          `export default function View() {`,
-          `  const { output, isPending } = useTool<{ text: string }>();`,
-          `  if (isPending) return <p>Loading</p>;`,
-          `  return <p>{output?.text}</p>;`,
-          `}`,
-          ``,
-        ].join("\n"),
-      );
-      files.push(`views/${name}.tsx`);
-    }
-  }
-  return { files };
+  const view = input.view
+    ? [
+        `import { useTool } from "plugmcp/view";`,
+        ``,
+        `export default function View() {`,
+        `  const { output, isPending } = useTool<{ text: string }>();`,
+        `  if (isPending) return <p>Loading</p>;`,
+        `  return <p>{output?.text}</p>;`,
+        `}`,
+      ].join("\n")
+    : "";
+  return { files: writeTool(project, { name, block, view }).files };
+}
+
+/** Files the Studio may read and write: the server file, the views and exported agents. */
+function editable(project: Project, path: string): string {
+  const ok = path === project.entry || /^views\/[A-Za-z0-9_.-]+\.(tsx|jsx)$/.test(path) || /^agents\/[a-z0-9-]+\.ts$/.test(path);
+  if (!ok || path.includes("..")) throw new Error("The Studio can only open the server file, views and agents.");
+  return join(project.root, path);
+}
+
+const agentId = (name: string) => slugify(name).slice(0, 40);
+
+/** A runnable Claude Agent SDK script for an agent made in the Studio. */
+function agentCode(agent: Agent, project: Project, serverName: string, remote: RemoteServer[]): string {
+  const local = slugify(serverName);
+  const entry = `../${project.entry.replace(/\.(ts|tsx)$/, ".js")}`;
+  const used = remote.filter((server) => agent.tools === null || agent.tools.some((id) => id.startsWith(`${server.name}__`)));
+  const allowed =
+    agent.tools === null
+      ? null
+      : agent.tools.map((id) => {
+          const cut = id.indexOf("__");
+          return cut === -1 ? `mcp__${local}__${id}` : `mcp__${id.slice(0, cut)}__${id.slice(cut + 2)}`;
+        });
+  const lines = [
+    `// ${agent.name}. Made in PlugMCP Studio.`,
+    `//`,
+    `//   ANTHROPIC_API_KEY=... npx tsx agents/${agent.id}.ts "your message"`,
+    ``,
+    `import { query } from "@anthropic-ai/claude-agent-sdk";`,
+    `import { toAgentSdk } from "plugmcp/agent";`,
+    `import server from ${JSON.stringify(entry)};`,
+    ``,
+    `// The tools from ${project.entry} run inside this process. No server to start.`,
+    `const local = toAgentSdk(server);`,
+    ``,
+    `const prompt = process.argv.slice(2).join(" ") || ${JSON.stringify(agent.starters?.[0] ?? "Hello. What can you do?")};`,
+    ``,
+    `for await (const message of query({`,
+    `  prompt,`,
+    `  options: {`,
+    `    systemPrompt: ${JSON.stringify(agent.instructions)},`,
+    ...(agent.provider === "anthropic" && agent.model ? [`    model: ${JSON.stringify(agent.model)},`] : []),
+    `    mcpServers: {`,
+    `      ...local.mcpServers,`,
+    ...used.map((server) => `      ${JSON.stringify(server.name)}: { type: "http", url: ${JSON.stringify(server.url)} },`),
+    `    },`,
+    allowed
+      ? `    allowedTools: ${JSON.stringify(allowed)},`
+      : `    allowedTools: [...local.allowedTools${used.map((server) => `, ${JSON.stringify(`mcp__${server.name}`)}`).join("")}],`,
+    `    tools: [], // only the tools above, none of the built-in file or shell tools`,
+    `  },`,
+    `})) {`,
+    `  if (message.type !== "assistant") continue;`,
+    `  for (const block of message.message.content) {`,
+    `    if (block.type === "text") console.log(block.text);`,
+    `    if (block.type === "tool_use") console.log(\`[tool] \${block.name} \${JSON.stringify(block.input)}\`);`,
+    `  }`,
+    `}`,
+    ``,
+  ];
+  return lines.join("\n");
 }
 
 /** Handle one request under /__studio/api/. Returns false when the path is not ours. */
@@ -165,6 +245,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
             mcpUrl: context.mcpUrl(),
             tools: tools.map((tool) => ({ ...tool, viewFile: views[tool.name] ?? null })),
             unusedViews: unused.map((name) => views[name]),
+            instructions: server.info.instructions ?? null,
+            calls: callLog().total,
+            failed: callLog().failed,
           }),
           true
         );
@@ -216,13 +299,20 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         return json(res, 200, { models: await listModels(provider, project.root) }), true;
       }
       case "POST /chat": {
-        const body = await readBody<Parameters<typeof streamChat>[1]>(req);
+        const body = await readBody<Parameters<typeof streamChat>[1] & { agent?: string; tools?: string[] | null; instructions?: string }>(req);
+        // An agent brings its own prompt, model and tools. A draft agent sends them in the request.
+        const agent = body.agent ? readAgents(project).find((item) => item.id === body.agent) : undefined;
+        if (agent?.provider && agent.model && !body.instructions) {
+          body.provider = agent.provider;
+          body.model = agent.model;
+        }
         if (!(body.provider in PROVIDERS)) throw new Error("Pick a provider first.");
         if (!body.model) throw new Error("Pick a model first.");
         const server = await context.loadServer();
         await streamChat(res, body, {
           root: project.root,
-          instructions: server.info.instructions,
+          instructions: body.instructions ?? agent?.instructions ?? server.info.instructions,
+          allow: body.tools !== undefined ? body.tools : (agent?.tools ?? null),
           servers: [{ server: local, local: true }, ...readServers(project).map((s) => ({ server: s, local: false }))],
         });
         return true;
@@ -279,6 +369,99 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
       case "POST /tools": {
         const body = await readBody<{ name: string; description?: string; view?: boolean }>(req);
         return json(res, 200, addToolToProject(project, { name: body.name ?? "", description: body.description ?? "", view: body.view === true })), true;
+      }
+      case "POST /generate": {
+        const body = await readBody<{ description?: string; view?: boolean; provider?: ProviderId; model?: string }>(req);
+        if (!body.description?.trim()) throw new Error("Say what the tool should do.");
+        if (!body.provider || !(body.provider in PROVIDERS) || !body.model) throw new Error("Choose a model first, in Settings.");
+        const source = readFileSync(join(project.root, project.entry), "utf8");
+        const variable = serverVariable(source);
+        if (!variable) throw new Error(`Could not find "const server = createServer(...)" in ${project.entry}.`);
+        const draft = await draftTool({
+          root: project.root,
+          provider: body.provider,
+          model: body.model,
+          description: body.description.trim(),
+          wantView: body.view !== false,
+          variable,
+          source,
+        });
+        const written = writeTool(project, { name: draft.name, block: draft.tool, view: draft.view });
+        try {
+          await context.reload();
+        } catch (error) {
+          // Never leave the project broken by code the user did not write.
+          written.undo();
+          await context.reload().catch(() => undefined);
+          throw new Error(`The model wrote code that does not load, so nothing was changed. Try again. (${message(error)})`);
+        }
+        return json(res, 200, { name: draft.name, files: written.files }), true;
+      }
+      case "GET /file": {
+        const path = url.searchParams.get("path") ?? "";
+        const file = editable(project, path);
+        return json(res, 200, { path, content: existsSync(file) ? readFileSync(file, "utf8") : "" }), true;
+      }
+      case "POST /file": {
+        const body = await readBody<{ path?: string; content?: string }>(req);
+        const file = editable(project, body.path ?? "");
+        if (typeof body.content !== "string") throw new Error("Nothing to save.");
+        if (!existsSync(dirname(file))) mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, body.content);
+        if (body.path !== project.entry) return json(res, 200, { saved: true, error: null }), true;
+        // Say right away when the server file no longer loads.
+        const error = await context.reload().then(
+          () => null,
+          (cause: unknown) => message(cause),
+        );
+        return json(res, 200, { saved: true, error }), true;
+      }
+      case "GET /logs":
+        return json(res, 200, callLog()), true;
+      case "DELETE /logs":
+        return clearCalls(), json(res, 200, callLog()), true;
+      case "GET /agents":
+        return json(res, 200, { agents: readAgents(project) }), true;
+      case "POST /agents": {
+        const body = await readBody<Partial<Agent>>(req);
+        const name = (body.name ?? "").trim();
+        if (!name) throw new Error("Give the agent a name.");
+        const agents = readAgents(project);
+        const known = Boolean(body.id && agents.some((item) => item.id === body.id));
+        const id = known ? (body.id as string) : agentId(name);
+        if (!known && agents.some((item) => item.id === id)) throw new Error(`An agent named ${name} already exists.`);
+        const agent: Agent = {
+          id,
+          name,
+          description: body.description?.trim() || undefined,
+          instructions: (body.instructions ?? "").trim(),
+          provider: body.provider && body.provider in PROVIDERS ? body.provider : undefined,
+          model: body.model || undefined,
+          tools: Array.isArray(body.tools) ? body.tools : null,
+          starters: (body.starters ?? []).map((text) => text.trim()).filter(Boolean).slice(0, 4),
+        };
+        writeAgents(project, known ? agents.map((item) => (item.id === id ? agent : item)) : [...agents, agent]);
+        return json(res, 200, { agent }), true;
+      }
+      case "DELETE /agents": {
+        const id = url.searchParams.get("id");
+        writeAgents(project, readAgents(project).filter((item) => item.id !== id));
+        return json(res, 200, { removed: id }), true;
+      }
+      case "GET /agents/code":
+      case "POST /agents/code": {
+        const id = url.searchParams.get("id");
+        const agent = readAgents(project).find((item) => item.id === id);
+        if (!agent) throw new Error("No such agent. Save it first.");
+        const server = await context.loadServer();
+        const code = agentCode(agent, project, server.info.name, readServers(project));
+        const path = `agents/${agent.id}.ts`;
+        if (req.method === "POST") {
+          const file = editable(project, path);
+          if (!existsSync(dirname(file))) mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, code);
+        }
+        return json(res, 200, { path, code, saved: req.method === "POST" }), true;
       }
       case "GET /ship": {
         const server = await context.loadServer();

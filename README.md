@@ -1,12 +1,12 @@
 # PlugMCP SDK
 
-**Build MCP servers and MCP Apps in one file. See your tools on a canvas, chat with them using your own key, and ship.**
+**Build MCP servers, MCP Apps and agents in one place. Write a tool or describe it, test it in a local Studio, chat with it using your own key, and ship.**
 
 [![npm](https://img.shields.io/npm/v/plugmcp?color=0099FF)](https://www.npmjs.com/package/plugmcp)
 [![license](https://img.shields.io/badge/license-MIT-0099FF)](LICENSE)
 [![directory](https://img.shields.io/badge/directory-70%2C000%2B%20servers-0099FF)](https://plugmcp.ai/mcp)
 
-The PlugMCP SDK is an open-source TypeScript framework for the [Model Context Protocol](https://modelcontextprotocol.io). You write tools with Zod, add a React file to give a tool a UI that renders inside Claude, ChatGPT and other chat clients ([MCP Apps](https://modelcontextprotocol.io/extensions/apps)), and test everything in a local Studio. No account. No telemetry.
+The PlugMCP SDK is an open-source TypeScript framework for the [Model Context Protocol](https://modelcontextprotocol.io). You write tools with Zod, add a React file to give a tool a UI that renders inside Claude, ChatGPT and other chat clients ([MCP Apps](https://modelcontextprotocol.io/extensions/apps)), and build, test and chat with everything in a local Studio that runs on your machine. No account. No telemetry.
 
 ```bash
 npx create-plugmcp my-server
@@ -14,13 +14,15 @@ cd my-server
 npm run dev
 ```
 
-![The Studio canvas: a server, its tool, the tool's view, and a live test](docs/studio-canvas.jpg)
+![The Studio playground: the model calls a tool and its view renders in the conversation](docs/studio-chat.jpg)
 
 ## Why this one
 
 - **One file per server, one file per view.** No decorators, no second project, no registration step. A file at `views/get_weather.tsx` is the UI for the tool named `get_weather`.
-- **A Studio that runs on your machine.** A map of your tools, a form to test each one, and the tool's view rendered the way a chat client shows it.
+- **A Studio that runs on your machine.** An overview of the server, every tool with a form to run it, its view rendered the way a chat client shows it, an editor for the code, and a log of every call.
+- **Describe a tool and it is written for you.** Say what the tool should do. Your own model writes the tool and its view into your project, and it is live at once. Code that does not load is never kept.
 - **Chat with your own key.** OpenAI, Anthropic, Google, OpenRouter, Ollama or any OpenAI-compatible endpoint. The key stays in a local file and goes only to the provider you chose. It never reaches the browser or us.
+- **Agents.** Give an agent a prompt, a model and a set of tools, talk to it next to the form, then take the Claude Agent SDK code.
 - **A directory built in.** Search 70,000+ existing servers before you build a duplicate, and add hosted ones to your chat to try them next to your own.
 - **Works with the Claude Agent SDK.** The same tools run in-process inside an agent with one line.
 - **Fast.** One process. The starter is ready in about 0.2 seconds, and edits reload without a restart.
@@ -86,16 +88,20 @@ That is the whole integration. The SDK bundles the view into one self-contained 
 
 `npm run dev` opens it at `http://localhost:3333`.
 
-![The Studio chat: the model calls the tool and the view renders in the conversation](docs/studio-chat.jpg)
+![An agent in the Studio: instructions and tools on the left, a live chat on the right](docs/studio-agent.jpg)
 
-| Tab | What it does |
+| Page | What it does |
 |---|---|
-| **Canvas** | Your server, each tool, and each view. Select a tool to fill in its input, run it, and see the result and the view. **New tool** writes a starting point into your project. |
-| **Chat** | A conversation with your server. Tool calls and views appear inline, as they would in a chat client. |
-| **Directory** | Search [plugmcp.ai](https://plugmcp.ai/mcp). Add any hosted server to your chat. |
-| **Ship** | Install buttons for Cursor and VS Code, commands for Claude Code and Codex, and the steps to go live. |
+| **Overview** | The server at a glance: tools, views, calls, what to do next, and similar servers already in the directory. |
+| **Tools** | Every tool. Run it with a form built from its schema, see the result and the view, read the schema, and edit the tool and view code in place. **New tool** writes one from a description, or adds a blank one. |
+| **Playground** | A conversation with your server. Tool calls and views appear inline, as they would in a chat client. Switch models, turn tools on and off, or talk to one of your agents. |
+| **Agents** | Make an agent from a prompt, a model and a choice of tools. Test it in a chat beside the form. **Get the code** gives a Claude Agent SDK script and saves it to `agents/`. |
+| **Canvas** | A map of the project: agents, servers, tools and views, and what uses what. |
+| **Logs** | Every tool call the dev server handled, from the Studio, your editor or any other client, with input, result and time. |
+| **Connect** | Install buttons for Cursor and VS Code, commands for Claude Code and Codex, and the steps to go live. |
+| **Directory** | Search [plugmcp.ai](https://plugmcp.ai/mcp). Add any hosted server to your playground and your agents. |
 
-Keys for the chat are read from your project's `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`) or saved from the Chat tab to `~/.plugmcp/keys.json`.
+Keys are read from your project's `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`) or saved from the Studio to `~/.plugmcp/keys.json`.
 
 ## Use the tools in the Claude Agent SDK
 
@@ -111,7 +117,7 @@ for await (const message of query({ prompt: "What is the weather in Lisbon?", op
 }
 ```
 
-No server to start and no network hop. Scaffold a working example with `npx create-plugmcp my-agent --template agent`.
+No server to start and no network hop. Scaffold a working example with `npx create-plugmcp my-agent --template agent`, or build an agent in the Studio and press **Get the code**.
 
 ## Command line
 
@@ -164,7 +170,7 @@ Other good frameworks exist, and you should pick the one that fits.
 - [NitroStack](https://github.com/nitrocloudofficial/nitrostack) is a NestJS-style framework with modules, decorators and a desktop studio.
 - The official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) and [ext-apps](https://github.com/modelcontextprotocol/ext-apps) are what this SDK is built on. Use them directly when you want full control.
 
-PlugMCP SDK aims to be the smallest path from an idea to a tool with a UI that you can see, test and talk to, with a public directory attached.
+PlugMCP SDK aims to be the smallest path from an idea to a tool with a UI, and an agent that uses it, that you can see, test and talk to on your own machine, with a public directory attached.
 
 ## Requirements
 
