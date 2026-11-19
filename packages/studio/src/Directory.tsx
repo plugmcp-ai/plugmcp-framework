@@ -76,7 +76,7 @@ export function Directory() {
 
       <div className="search">
         <IconSearch size={18} stroke={1.75} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search servers, for example stripe or postgres" aria-label="Search the directory" autoFocus />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search servers, for example github or postgres" aria-label="Search the directory" autoFocus />
       </div>
       <label className="check">
         <input type="checkbox" checked={remoteOnly} onChange={(event) => setRemoteOnly(event.target.checked)} />

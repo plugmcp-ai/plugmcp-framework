@@ -145,7 +145,7 @@ async function main() {
 
     case "search": {
       const query = positional.join(" ");
-      if (!query) throw new Error("Say what to search for: plugmcp search stripe");
+      if (!query) throw new Error("Say what to search for: plugmcp search github");
       const { directory } = await import("../dev/api.js");
       const params = new URLSearchParams({ q: query });
       if (flags.remote === true) params.set("remote", "1");
