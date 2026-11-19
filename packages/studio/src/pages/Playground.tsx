@@ -28,13 +28,19 @@ export function Playground({ agentId }: { agentId?: string }) {
       return own ? { provider: own.provider, model: own.model, agent: agent.id } : null;
     }
     if (!model) return null;
-    return { provider: model.provider, model: model.model, tools: off.size ? tools.filter((tool) => !off.has(tool.id)).map((tool) => tool.id) : undefined };
+    return { provider: model.provider, model: model.model, build: true, tools: off.size ? tools.filter((tool) => !off.has(tool.id)).map((tool) => tool.id) : undefined };
   }, [agent, model, off, tools]);
 
   if (!server) return null;
   const active = agent ? (agent.tools === null ? tools : tools.filter((tool) => agent.tools?.includes(tool.id))) : tools.filter((tool) => !off.has(tool.id));
   const groups = [{ name: server.name, local: true, tools: server.tools }, ...remote.map((item) => ({ name: item.name, local: false, tools: item.tools }))];
-  const starters = agent?.starters?.length ? agent.starters : server.tools.slice(0, 3).map((tool) => `Use ${tool.name} and show me the result`);
+  const starters = agent?.starters?.length
+    ? agent.starters
+    : [
+        "Build an MCP app that draws a flowchart from a list of steps",
+        "Build a tool that converts currencies with live rates, with a card",
+        ...server.tools.slice(0, 1).map((tool) => `Use ${tool.name} and show me the result`),
+      ];
 
   return (
     <div className={`play${rail ? " show-rail" : ""}`} style={{ position: "relative" }}>
@@ -67,11 +73,12 @@ export function Playground({ agentId }: { agentId?: string }) {
           key={picked}
           id={`play-${picked}`}
           body={body}
-          title={agent ? agent.name : `Chat with ${server.name}`}
+          placeholder={agent ? undefined : "Ask for a new tool or app, or use the ones you have"}
+          title={agent ? agent.name : `Build and chat with ${server.name}`}
           lede={
             agent
               ? (agent.description ?? "This agent uses its own prompt and tools.")
-              : "The model can call your tools, and their views show up in the conversation the way they will in Claude or ChatGPT."
+              : "Ask for a tool or an MCP app and it is written into your project and run right here. The model can also call the tools you already have, and their views show up the way they will in Claude or ChatGPT."
           }
           starters={starters}
           onState={setChat}

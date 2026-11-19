@@ -12,9 +12,8 @@ export interface Draft {
   view: string;
 }
 
-const RULES = `You write one tool for an MCP server built with the "plugmcp" TypeScript SDK.
-
-A tool is one statement:
+/** How a tool and a view are written. Shared by the tool writer and the chat that builds. */
+export const GUIDE = `A tool is one statement:
 
 server.tool(
   {
@@ -57,7 +56,12 @@ Rules for the view:
 - Inline styles only. Support both themes: dark uses text #F2EFE9 on #141414 with #2A2A2A borders, light uses text #141414 on #FFFFFF with #E2DFD9 borders. Accent #0099FF. Radius 14px on the card, 10px on controls. No emojis.
 - "output" is exactly the object the tool returns. Type it.
 - callTool(name, args) calls a tool on the same server and returns { output }. sendMessage(text) puts a message into the chat. Use them when they make the view more useful.
-- Keep it compact: it is shown inline in a conversation, at most about 420px wide.
+- For charts and diagrams, draw inline SVG yourself and work out the layout in code. No chart or diagram packages.
+- Keep it compact: it is shown inline in a conversation, at most about 420px wide. A diagram may use the full width and scroll.`;
+
+const RULES = `You write one tool for an MCP server built with the "plugmcp" TypeScript SDK.
+
+${GUIDE}
 
 Answer with one JSON object and nothing else:
 {"name": "...", "description": "...", "tool": "server.tool(...);", "view": "full file text, or an empty string"}`;

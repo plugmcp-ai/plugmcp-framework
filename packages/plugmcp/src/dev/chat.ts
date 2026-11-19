@@ -121,10 +121,17 @@ interface ChatRequest {
   model: string;
 }
 
-interface McpResult {
+export interface McpResult {
   content?: Array<{ type: string; text?: string }>;
   structuredContent?: unknown;
   isError?: boolean;
+}
+
+/** What the model reads back from a tool call. */
+export function resultForModel(result: McpResult) {
+  const text = (result.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const value = text || JSON.stringify(result.structuredContent ?? {});
+  return result.isError ? ({ type: "error-text", value } as const) : ({ type: "text", value } as const);
 }
 
 /** Run one chat turn: the model, the tools of every connected server, streamed to the browser. */
@@ -137,6 +144,8 @@ export async function streamChat(
     instructions?: string;
     /** Tool ids the model may call. Leave out for all of them. */
     allow?: string[] | null;
+    /** Tools of the Studio itself, such as the ones that write code. */
+    extra?: ToolSet;
   },
 ): Promise<void> {
   const { key } = resolveKey(body.provider, context.root);
@@ -177,21 +186,17 @@ export async function streamChat(
             }
             return result;
           },
-          toModelOutput: ({ output }) => {
-            const result = output as McpResult;
-            const text = (result.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
-            const value = text || JSON.stringify(result.structuredContent ?? {});
-            return result.isError ? { type: "error-text", value } : { type: "text", value };
-          },
+          toModelOutput: ({ output }) => resultForModel(output as McpResult),
         });
       }
     }
+    Object.assign(tools, context.extra);
     const result = streamText({
       model,
       system: context.instructions,
       messages: await convertToModelMessages(body.messages, { tools }),
       tools,
-      stopWhen: isStepCount(12),
+      stopWhen: isStepCount(context.extra ? 24 : 12),
       onFinish: close,
       onError: close,
       onAbort: close,

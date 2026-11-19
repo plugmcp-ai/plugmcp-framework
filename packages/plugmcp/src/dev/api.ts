@@ -5,9 +5,11 @@ import { hostHeaderValidation, originValidation } from "@modelcontextprotocol/no
 import type { PlugServer } from "../index.js";
 import { slugify } from "../index.js";
 import { DIRECTORY_URL, directoryPage, installSnippets, readmeBadge } from "../install.js";
-import { connect, listModels, listTools, streamChat } from "./chat.js";
-import type { RemoteServer, ToolInfo } from "./chat.js";
-import { draftTool } from "./generate.js";
+import { dynamicTool, jsonSchema } from "ai";
+import type { ToolSet } from "ai";
+import { connect, listModels, listTools, resultForModel, streamChat } from "./chat.js";
+import type { McpResult, RemoteServer, ToolInfo } from "./chat.js";
+import { GUIDE, draftTool } from "./generate.js";
 import { PROVIDERS, publicSettings, readSettings, writeSettings } from "./keys.js";
 import type { ProviderId } from "./keys.js";
 import { listViews } from "./project.js";
@@ -151,6 +153,102 @@ function editable(project: Project, path: string): string {
 }
 
 const agentId = (name: string) => slugify(name).slice(0, 40);
+
+const text = { type: "string" } as const;
+
+/** Tools that let the Studio chat write tools and views into the project, and the prompt that explains them. */
+function builder(context: ApiContext, local: RemoteServer): { tools: ToolSet; system: string } {
+  const { project } = context;
+  const source = readFileSync(join(project.root, project.entry), "utf8");
+  const variable = serverVariable(source) ?? "server";
+  const views = Object.values(listViews(project));
+
+  /** Write, load the server again, and put things back when the new code does not load. */
+  const settle = async (undo: () => void) => {
+    try {
+      await context.reload();
+    } catch (error) {
+      undo();
+      await context.reload().catch(() => undefined);
+      throw new Error(`That code does not load, so nothing was changed. Fix it and call the tool again. (${message(error)})`);
+    }
+  };
+
+  const tools: ToolSet = {
+    studio_add_tool: dynamicTool({
+      description: "Add a new tool to the user's MCP server, with an optional view. The tool is live as soon as this returns.",
+      inputSchema: jsonSchema({
+        type: "object",
+        properties: {
+          name: { ...text, description: "Tool name: lowercase letters, numbers and underscores" },
+          tool: { ...text, description: `One complete ${variable}.tool(...) statement, no imports` },
+          view: { ...text, description: "The complete view file, or an empty string for no view" },
+        },
+        required: ["name", "tool"],
+      }),
+      execute: async (input) => {
+        const draft = input as { name: string; tool: string; view?: string };
+        if (typeof draft.tool !== "string" || !/\.tool\s*\(/.test(draft.tool)) throw new Error(`"tool" must be one ${variable}.tool(...) statement.`);
+        if (/^\s*import\s/m.test(draft.tool)) throw new Error("Do not put import statements in the tool. z and fetch are already available.");
+        const written = writeTool(project, { name: String(draft.name ?? "").trim(), block: draft.tool, view: draft.view ?? "" });
+        await settle(written.undo);
+        return { added: draft.name, files: written.files, next: "Call studio_try_tool with realistic arguments so the user sees it work." };
+      },
+    }),
+    studio_read_file: dynamicTool({
+      description: `Read a project file: ${project.entry} or a view such as views/get_weather.tsx.`,
+      inputSchema: jsonSchema({ type: "object", properties: { path: text }, required: ["path"] }),
+      execute: async (input) => {
+        const { path } = input as { path: string };
+        const file = editable(project, path);
+        if (!existsSync(file)) throw new Error(`${path} does not exist.`);
+        return { path, content: readFileSync(file, "utf8") };
+      },
+    }),
+    studio_write_file: dynamicTool({
+      description: `Replace a whole project file, to change or fix an existing tool or view. Allowed: ${project.entry} and views/<tool_name>.tsx. Send the complete new content.`,
+      inputSchema: jsonSchema({ type: "object", properties: { path: text, content: text }, required: ["path", "content"] }),
+      execute: async (input) => {
+        const { path, content } = input as { path: string; content: string };
+        const file = editable(project, path);
+        if (typeof content !== "string" || !content.trim()) throw new Error("Send the complete file content.");
+        const before = existsSync(file) ? readFileSync(file, "utf8") : null;
+        if (!existsSync(dirname(file))) mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, content);
+        await settle(() => (before === null ? rmSync(file, { force: true }) : writeFileSync(file, before)));
+        return { saved: path };
+      },
+    }),
+    studio_try_tool: dynamicTool({
+      description: "Call any tool on the user's server by name, including one you just added. Its view is shown to the user in the chat.",
+      inputSchema: jsonSchema({
+        type: "object",
+        properties: { name: text, arguments: { type: "object", description: "The tool's input", additionalProperties: true } },
+        required: ["name"],
+      }),
+      execute: async (input) => {
+        const call = input as { name: string; arguments?: Record<string, unknown> };
+        const client = await connect(local);
+        try {
+          return (await client.callTool({ name: call.name, arguments: call.arguments ?? {} })) as McpResult;
+        } finally {
+          await client.close();
+        }
+      },
+      toModelOutput: ({ output }) => resultForModel(output as McpResult),
+    }),
+  };
+
+  const system = [
+    `You are the assistant inside PlugMCP Studio, working on the user's own MCP server on their machine. It is built with the "plugmcp" TypeScript SDK.`,
+    `You can build. When the user asks for a tool, an MCP app, a widget, a view or a change to one, do the work yourself with the studio_ tools. Never answer with setup steps, npm commands or code for the user to paste: the project already exists and is running.`,
+    `How to build:\n- New tool or app: call studio_add_tool with the tool and, when the result is worth looking at, a view. An "MCP app" means a tool with a view.\n- Then call studio_try_tool with realistic arguments so the user sees it working in the chat.\n- If it fails or looks wrong, read the file with studio_read_file, fix it with studio_write_file and try again.\n- To change an existing tool or view, read the file first, then write the whole file back with the change.\n- Finish with two or three plain sentences: what you built and what the user can ask next. Do not paste the code.`,
+    GUIDE,
+    `The server variable is named "${variable}". The server file is ${project.entry}. Views are in views/<tool_name>.tsx${views.length ? `; existing: ${views.join(", ")}` : ""}.`,
+    `${project.entry} now:\n\n${source.slice(0, 16_000)}`,
+  ].join("\n\n");
+  return { tools, system };
+}
 
 /** A runnable Claude Agent SDK script for an agent made in the Studio. */
 function agentCode(agent: Agent, project: Project, serverName: string, remote: RemoteServer[]): string {
@@ -299,7 +397,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         return json(res, 200, { models: await listModels(provider, project.root) }), true;
       }
       case "POST /chat": {
-        const body = await readBody<Parameters<typeof streamChat>[1] & { agent?: string; tools?: string[] | null; instructions?: string }>(req);
+        const body = await readBody<Parameters<typeof streamChat>[1] & { agent?: string; tools?: string[] | null; instructions?: string; build?: boolean }>(req);
         // An agent brings its own prompt, model and tools. A draft agent sends them in the request.
         const agent = body.agent ? readAgents(project).find((item) => item.id === body.agent) : undefined;
         if (agent?.provider && agent.model && !body.instructions) {
@@ -309,9 +407,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, conte
         if (!(body.provider in PROVIDERS)) throw new Error("Pick a provider first.");
         if (!body.model) throw new Error("Pick a model first.");
         const server = await context.loadServer();
+        // The plain playground chat can also write tools. An agent only uses them.
+        const build = body.build === true && !agent && !body.instructions ? builder(context, local) : null;
+        const instructions = body.instructions ?? agent?.instructions ?? server.info.instructions;
         await streamChat(res, body, {
           root: project.root,
-          instructions: body.instructions ?? agent?.instructions ?? server.info.instructions,
+          instructions: build ? [build.system, instructions ? `The server's own instructions:\n${instructions}` : ""].filter(Boolean).join("\n\n") : instructions,
+          extra: build?.tools,
           allow: body.tools !== undefined ? body.tools : (agent?.tools ?? null),
           servers: [{ server: local, local: true }, ...readServers(project).map((s) => ({ server: s, local: false }))],
         });
