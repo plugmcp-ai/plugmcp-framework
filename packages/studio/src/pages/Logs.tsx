@@ -22,7 +22,7 @@ export function Logs() {
 
   return (
     <div className="page">
-      <PageHead title="Logs" lede="Every tool call this dev server has handled, from the Studio, your editor or any other connected client. Kept in memory until you stop the server.">
+      <PageHead title="Logs" lede="Every tool call this dev server has handled, from the Studio, your editor or any other connected client. The last 300 are kept, also after a restart.">
         <Seg
           value={filter}
           onChange={setFilter}

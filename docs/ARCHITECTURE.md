@@ -23,6 +23,16 @@ A developer installs one package, `plugmcp`. They write MCP servers in TypeScrip
 
 `examples/weather` is a working project used for tests and screenshots.
 
+## Server, tool, app
+
+- An **MCP server** is a named set of tools behind one address.
+- A **tool** is one function a model can call: a name, a description, an input schema and a handler.
+- An **MCP app** is a tool that also has a view. Nothing else differs, so servers and apps are built the same way and the Studio's chat can build both.
+
+## The test agent
+
+There is one agent in the Studio, the Chat page, and it exists for testing. It is not a custom agent engine: the loop is the open-source [AI SDK](https://ai-sdk.dev) (Apache 2.0), which talks to OpenAI, Anthropic, Google, OpenRouter, Ollama and any OpenAI-compatible endpoint. The earlier page for making several named agents was removed. `plugmcp/agent` remains for running the same tools inside the Claude Agent SDK.
+
 ## The layers
 
 ```
@@ -72,7 +82,7 @@ Each server has its own tools, views, agents and added directory servers. Model 
 | `chat.ts` | The chat loop. Runs in Node with the AI SDK, so a model key never reaches the browser. |
 | `generate.ts` | The prompt that teaches a model how to write a tool and a view. |
 | `keys.ts` | Reads keys from `.env` or `~/.plugmcp/keys.json`. |
-| `store.ts` | Saved agents (`.plugmcp/agents.json`) and the call log (in memory). |
+| `store.ts` | The call log: the last 300 calls, kept in `.plugmcp/calls.json`. |
 | `views.ts` | Turns a view file into a small page. |
 
 How the Studio writes code:
@@ -89,13 +99,12 @@ The Studio can only open the server file, files in `views/` and files in `agents
 | Page | What you do there |
 |---|---|
 | Overview | See every MCP server as a card, start a new one, and see the open server at a glance. |
-| Tools | List of tools. Run one with a form, see its view, read its schema, edit its code and description. |
-| Canvas | Each MCP server with its tools under it. Drag cards, click a tool to edit it beside the canvas, add tools and servers. |
-| Playground | Chat with the open server using your own key. The chat can build tools and apps. |
-| Agents | A prompt, a model and a choice of tools, with a test chat. Needs a model key. Exports a Claude Agent SDK script. |
+| Tools | List of tools. Each opens on its schema (every input, its type and meaning), with a form to run it beside it, and tabs for its code and view code. |
+| Canvas | One canvas for each MCP server: the server on top, its tools under it. Drag cards, click a tool to see its schema and edit it beside the canvas. |
+| Chat | The one test agent for the open server, on your own key. It can build tools and apps. You can give it instructions and turn tools on and off. |
 | Logs | Every tool call, from the Studio or any connected client. |
 | Connect | Install buttons and commands for Cursor, VS Code, Claude Code, Codex. |
-| Directory | Search plugmcp.ai and add a hosted server to the chat. |
+| Directory | A few popular servers from plugmcp.ai with a search, and a link to the full directory. Add a hosted one to the chat. |
 | Models and keys | Choose a provider and model, save a key. |
 
 The switcher at the top of the sidebar chooses which MCP server the Studio works on. `state.tsx` holds two things: the workspace (all servers) and the open server (its tools, agents, settings).
@@ -111,7 +120,7 @@ The switcher at the top of the sidebar chooses which MCP server the Studio works
 | Your code | Your project folder | No |
 | Model keys | `.env` in the project, or `~/.plugmcp/keys.json` | Only to the provider you chose |
 | Agents, added directory servers | `.plugmcp/` in each server's folder (git-ignored) | No |
-| Call log | Memory of the dev server | No |
+| Call log | `.plugmcp/calls.json` in the project (git-ignored) | No |
 | Canvas card positions, the open server | The browser's local storage | No |
 | Chat messages, and your server file when the chat builds | Sent to your model provider with your key | Yes, to that provider only |
 | Directory searches | plugmcp.ai public API | Yes |
@@ -130,7 +139,7 @@ There is no telemetry.
 
 - Servers, tools, views, HTTP and stdio, build and start.
 - Several MCP servers in one folder, each with its own address, created from the Studio. Checked in the browser and by an automated test.
-- Studio: overview, tools, canvas with dragging and in-place editing, playground that builds tools, agents, logs, connect, directory, keys.
+- Studio: overview, schema-first tools, a canvas per server with dragging and in-place editing, a chat that builds tools, logs, connect, directory, keys.
 - 25 automated tests, typecheck and lint.
 
 ## What is missing or not checked
@@ -145,12 +154,14 @@ Not built:
 - **OAuth helpers for tools**, a public tunnel, and a view screenshot command. Some competitors have these.
 - **One command to build and start every server in a folder.** Each server is built on its own.
 - **Speed benchmark** against other SDKs. Not measured.
+- **Templates gallery in the Studio** (start a new MCP server from a ready-made app).
+- **Demo videos** for the README.
 - **Docs site.** The README is the documentation.
 
 Built but not checked by hand:
 
-- The agent key gate (the page that asks for a key before agents) was not seen in the browser, because a key is present on the test machine.
-- Running an exported agent script with the Claude Agent SDK (no Anthropic key on the test machine).
+- The first-run screen that asks for a model key was not seen in the browser, because a key is present on the test machine.
+- Running the tools inside the Claude Agent SDK with a real Anthropic key (the adapter is covered by a test, not by a live run).
 - The Studio on a real phone. Narrow layouts were checked in a desktop browser only.
 - Dragging cards on a touch screen.
 

@@ -19,7 +19,7 @@ import { useStudio, useWorkspace } from "../state";
 import { CopyButton, Empty, Glyph, PageHead, SectionTitle, ago, plural } from "../ui";
 
 export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => void }) {
-  const { server, model, agents, remote } = useStudio();
+  const { server, model, remote } = useStudio();
   const space = useWorkspace();
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [similar, setSimilar] = useState<DirectoryServer[]>([]);
@@ -46,8 +46,8 @@ export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => v
     { id: "tool", label: "Add a tool", done: server.tools.length > 0, href: "#/tools", action: "Open tools" },
     { id: "run", label: "Run a tool and see its result", done: total > 0, href: server.tools[0] ? `#/tools/${server.tools[0].id}` : "#/tools", action: "Run one" },
     { id: "key", label: "Connect a model with your own key", done: Boolean(model), href: "#/settings", action: "Add a key" },
-    { id: "chat", label: "Chat with your tools", done: Boolean(model) && total > 1, href: "#/playground", action: "Open the playground" },
-    { id: "agent", label: "Make an agent", done: agents.length > 0, href: "#/agents/new", action: "New agent" },
+    { id: "chat", label: "Chat with your tools, or ask the chat to build one", done: Boolean(model) && total > 1, href: "#/playground", action: "Open the chat" },
+    { id: "connect", label: "Connect Cursor, Claude or another client", done: false, href: "#/connect", action: "Install steps" },
   ];
   const done = steps.filter((step) => step.done).length;
 
@@ -105,7 +105,7 @@ export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => v
             <IconSitemap size={15} stroke={1.75} /> Canvas
           </a>
           <a className="btn btn-outline" href="#/playground">
-            <IconMessage size={15} stroke={1.75} /> Playground
+            <IconMessage size={15} stroke={1.75} /> Chat
           </a>
           <button type="button" className="btn btn-secondary" onClick={onNew}>
             <IconPlus size={15} stroke={2} /> New tool

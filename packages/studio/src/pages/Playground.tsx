@@ -1,19 +1,29 @@
-import { IconAdjustmentsHorizontal, IconExternalLink, IconPlus, IconRobot, IconTrash, IconX } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconExternalLink, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import { Conversation } from "../Conversation";
 import type { ChatBody } from "../Conversation";
 import { KeySetup, ModelSelect } from "../Models";
 import { api } from "../api";
-import { useStudio } from "../state";
+import { useStudio, useWorkspace } from "../state";
 import { plural } from "../ui";
 
-export function Playground({ agentId }: { agentId?: string }) {
-  const { server, settings, setSettings, agents, tools, remote, model } = useStudio();
-  const [picked, setPicked] = useState(agentId ?? "");
+const notesKey = (mcp: string) => `plugmcp.instructions.${mcp}`;
+const readNotes = (mcp: string) => {
+  try {
+    return localStorage.getItem(notesKey(mcp)) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+/** One test agent for the open MCP server: your model, your instructions, your tools. It can also build tools. */
+export function Playground() {
+  const { server, settings, setSettings, tools, remote, model } = useStudio();
+  const space = useWorkspace();
   const [off, setOff] = useState<Set<string>>(new Set());
   const [rail, setRail] = useState(false);
   const [chat, setChat] = useState<{ clear: () => void; count: number } | null>(null);
-  const agent = agents.find((item) => item.id === picked);
+  const [notes, setNotes] = useState(() => readNotes(space.current));
 
   const onModel = useCallback(
     (provider: string, name: string) => {
@@ -22,43 +32,41 @@ export function Playground({ agentId }: { agentId?: string }) {
     [setSettings],
   );
 
-  const body: ChatBody | null = useMemo(() => {
-    if (agent) {
-      const own = agent.provider && agent.model ? { provider: agent.provider, model: agent.model } : model;
-      return own ? { provider: own.provider, model: own.model, agent: agent.id } : null;
+  const saveNotes = (text: string) => {
+    setNotes(text);
+    try {
+      localStorage.setItem(notesKey(space.current), text);
+    } catch {
+      // The instructions then last until the page is closed.
     }
+  };
+
+  const body: ChatBody | null = useMemo(() => {
     if (!model) return null;
-    return { provider: model.provider, model: model.model, build: true, tools: off.size ? tools.filter((tool) => !off.has(tool.id)).map((tool) => tool.id) : undefined };
-  }, [agent, model, off, tools]);
+    return {
+      provider: model.provider,
+      model: model.model,
+      build: true,
+      instructions: notes.trim() || undefined,
+      tools: off.size ? tools.filter((tool) => !off.has(tool.id)).map((tool) => tool.id) : undefined,
+    };
+  }, [model, off, tools, notes]);
 
   if (!server) return null;
-  const active = agent ? (agent.tools === null ? tools : tools.filter((tool) => agent.tools?.includes(tool.id))) : tools.filter((tool) => !off.has(tool.id));
+  const active = tools.filter((tool) => !off.has(tool.id));
   const groups = [{ name: server.name, local: true, tools: server.tools }, ...remote.map((item) => ({ name: item.name, local: false, tools: item.tools }))];
-  const starters = agent?.starters?.length
-    ? agent.starters
-    : [
-        "Build an MCP app that draws a flowchart from a list of steps",
-        "Build a tool that converts currencies with live rates, with a card",
-        ...server.tools.slice(0, 1).map((tool) => `Use ${tool.name} and show me the result`),
-      ];
+  const starters = [
+    "Build an MCP app that draws a flowchart from a list of steps",
+    "Build a tool that converts currencies with live rates, with a card",
+    ...server.tools.slice(0, 1).map((tool) => `Use ${tool.name} and show me the result`),
+  ];
 
   return (
     <div className={`play${rail ? " show-rail" : ""}`} style={{ position: "relative" }}>
       <div className="chat">
         <div className="chat-bar">
-          <select className="input" style={{ width: "auto", minHeight: 30, fontSize: 13, maxWidth: 200 }} aria-label="Who answers" value={picked} onChange={(event) => setPicked(event.target.value)}>
-            <option value="">{server.name} (no agent)</option>
-            {agents.map((item) => (
-              <option key={item.id} value={item.id}>
-                Agent: {item.name}
-              </option>
-            ))}
-          </select>
-          {agent?.provider && agent.model ? (
-            <span className="pill mono">{agent.model}</span>
-          ) : settings && model ? (
-            <ModelSelect compact provider={model.provider} model={model.model} onChange={onModel} />
-          ) : null}
+          <span className="pill">Test agent</span>
+          {settings && model ? <ModelSelect compact provider={model.provider} model={model.model} onChange={onModel} /> : null}
           <span className="grow" />
           {chat?.count ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={chat.clear}>
@@ -70,24 +78,19 @@ export function Playground({ agentId }: { agentId?: string }) {
           </button>
         </div>
         <Conversation
-          key={picked}
-          id={`play-${picked}`}
+          id="play"
           body={body}
-          placeholder={agent ? undefined : "Ask for a new tool or app, or use the ones you have"}
-          title={agent ? agent.name : `Build and chat with ${server.name}`}
-          lede={
-            agent
-              ? (agent.description ?? "This agent uses its own prompt and tools.")
-              : "Ask for a tool or an MCP app and it is written into your project and run right here. The model can also call the tools you already have, and their views show up the way they will in Claude or ChatGPT."
-          }
+          placeholder="Ask for a new tool or app, or use the ones you have"
+          title={`Chat with ${server.title ?? server.name}`}
+          lede="Ask for a tool or an MCP app and it is written into this server and run right here. The chat can also call the tools you already have, and their views show up the way they will in Claude or ChatGPT."
           starters={starters}
           onState={setChat}
           note="Runs on this machine with your own key."
           gate={
             <div className="panel keygate">
-              <h2 style={{ fontSize: 18 }}>Connect a model to start</h2>
+              <h2 style={{ fontSize: 18 }}>Add your model key to start</h2>
               <p className="muted" style={{ margin: "4px 0 18px" }}>
-                Pick a provider and paste your key. You pay the provider directly and nothing passes through PlugMCP.
+                The chat runs on your own model. Pick a provider and paste your key. It stays on this machine, you pay the provider directly and nothing passes through PlugMCP.
               </p>
               <KeySetup />
             </div>
@@ -98,21 +101,24 @@ export function Playground({ agentId }: { agentId?: string }) {
       <aside className="rail" aria-label="Chat setup">
         <div className="rail-section">
           <div className="rail-title">
-            {agent ? "Agent" : "Tools in this chat"}
+            Instructions
             <button type="button" className="btn btn-ghost btn-sm btn-icon" style={{ display: rail ? undefined : "none" }} onClick={() => setRail(false)} aria-label="Close">
               <IconX size={14} />
             </button>
           </div>
-          {agent ? (
-            <>
-              <p className="small muted clamp-3">{agent.instructions || "No instructions yet."}</p>
-              <a className="btn btn-outline btn-sm" href={`#/agents/${agent.id}`}>
-                <IconRobot size={14} stroke={1.75} /> Edit agent
-              </a>
-            </>
-          ) : (
-            <p className="hint">Untick a tool to hide it from the model for this chat.</p>
-          )}
+          <textarea
+            className="input"
+            rows={4}
+            value={notes}
+            onChange={(event) => saveNotes(event.target.value)}
+            placeholder="How the test agent should behave. For example: you are a support agent, keep answers short."
+            aria-label="Instructions for the test agent"
+          />
+          <p className="hint">{notes.trim() ? "Used from your next message." : "Empty means the server's own instructions."}</p>
+        </div>
+        <div className="rail-section">
+          <div className="rail-title">Tools in this chat</div>
+          <p className="hint">Untick a tool to hide it from the model.</p>
         </div>
         {groups.map((group) => (
           <div className="rail-section" key={group.name}>
@@ -120,34 +126,30 @@ export function Playground({ agentId }: { agentId?: string }) {
               <span className="truncate">{group.name}</span>
               <span className="pill">{group.local ? "This server" : "Added"}</span>
             </div>
-            {group.tools.length === 0 ? <p className="hint">No tools.</p> : null}
+            {group.tools.length === 0 ? <p className="hint">No tools yet. Ask the chat to build one.</p> : null}
             <div>
-              {group.tools.map((tool) => {
-                const on = active.some((item) => item.id === tool.id);
-                return (
-                  <label key={tool.id} className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      disabled={Boolean(agent)}
-                      onChange={() =>
-                        setOff((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(tool.id)) next.delete(tool.id);
-                          else next.add(tool.id);
-                          return next;
-                        })
-                      }
-                    />
-                    <span className="grow">
-                      <span className="mono" style={{ display: "block", fontSize: 12.5 }}>
-                        {tool.name}
-                      </span>
-                      <span className="hint clamp-2">{tool.description}</span>
+              {group.tools.map((tool) => (
+                <label key={tool.id} className="toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={!off.has(tool.id)}
+                    onChange={() =>
+                      setOff((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(tool.id)) next.delete(tool.id);
+                        else next.add(tool.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <span className="grow">
+                    <span className="mono" style={{ display: "block", fontSize: 12.5 }}>
+                      {tool.name}
                     </span>
-                  </label>
-                );
-              })}
+                    <span className="hint clamp-2">{tool.description}</span>
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
         ))}

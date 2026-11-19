@@ -250,6 +250,7 @@ function builder(context: ApiContext, local: RemoteServer): { tools: ToolSet; sy
 
   const system = [
     `You are the assistant inside PlugMCP Studio, working on the user's own MCP server on their machine. It is built with the "plugmcp" TypeScript SDK.`,
+    `What things are:\n- An MCP server is a named set of tools behind one address. This chat works on one server, the one described below.\n- A tool is one function a model can call: a name, a description, an input schema and a handler that returns data.\n- An MCP app is a tool that also has a view: a small React page shown inside the chat that draws the tool's result and can call tools back. A server and an app are built the same way; the app just adds a view file.\n- A new, separate MCP server is made with the "New MCP server" button in the Studio, not from this chat. If the user asks for a whole new server, say so in one sentence and offer to add the tools to this one.`,
     `You can build. When the user asks for a tool, an MCP app, a widget, a view or a change to one, do the work yourself with the studio_ tools. Never answer with setup steps, npm commands or code for the user to paste: the project already exists and is running.`,
     `How to build:\n- New tool or app: call studio_add_tool with the tool and, when the result is worth looking at, a view. An "MCP app" means a tool with a view.\n- Then call studio_try_tool with realistic arguments so the user sees it working in the chat.\n- If it fails or looks wrong, read the file with studio_read_file, fix it with studio_write_file and try again.\n- To change an existing tool or view, read the file first, then write the whole file back with the change.\n- Finish with two or three plain sentences: what you built and what the user can ask next. Do not paste the code.`,
     GUIDE,
@@ -468,11 +469,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, hub: 
         if (!body.model) throw new Error("Pick a model first.");
         const server = await context.loadServer();
         // The plain playground chat can also write tools. An agent only uses them.
-        const build = body.build === true && !agent && !body.instructions ? builder(context, local) : null;
-        const instructions = body.instructions ?? agent?.instructions ?? server.info.instructions;
+        const build = body.build === true && !agent ? builder(context, local) : null;
+        const instructions = body.instructions?.trim() || agent?.instructions || server.info.instructions;
         await streamChat(res, body, {
           root: project.home,
-          instructions: build ? [build.system, instructions ? `The server's own instructions:\n${instructions}` : ""].filter(Boolean).join("\n\n") : instructions,
+          instructions: build ? [build.system, instructions ? `Instructions for this chat, from the user:\n${instructions}` : ""].filter(Boolean).join("\n\n") : instructions,
           extra: build?.tools,
           allow: body.tools !== undefined ? body.tools : (agent?.tools ?? null),
           servers: [{ server: local, local: true }, ...readServers(project).map((s) => ({ server: s, local: false }))],

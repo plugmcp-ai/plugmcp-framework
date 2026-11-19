@@ -19,7 +19,7 @@ export function SettingsPage() {
 
   return (
     <div className="page page-narrow">
-      <PageHead title="Models and keys" lede="The playground and agents run on your own model keys. Pick the model to use, and add a key for each provider you want." />
+      <PageHead title="Models and keys" lede="The chat runs on your own model keys. Pick the model to use, and add a key for each provider you want." />
 
       <section className="panel panel-pad stack">
         <h2>Model for the chat</h2>

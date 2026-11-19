@@ -89,7 +89,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ name, servers, current, switchTo, reload }), [name, servers, current, switchTo, reload]);
   return (
     <SpaceContext.Provider value={value}>
-      <StudioProvider key={current}>{children}</StudioProvider>
+      <StudioProvider key={current} initial={servers.find((item) => item.id === current)}>
+        {children}
+      </StudioProvider>
     </SpaceContext.Provider>
   );
 }
@@ -102,9 +104,10 @@ export function useStudio(): Studio {
   return value;
 }
 
-export function StudioProvider({ children }: { children: ReactNode }) {
-  const [info, setInfo] = useState<Info | null>(null);
-  const [server, setServer] = useState<Ok | null>(null);
+export function StudioProvider({ children, initial }: { children: ReactNode; initial?: Info }) {
+  // Start from what the workspace already knows, so switching servers shows the new one at once.
+  const [info, setInfo] = useState<Info | null>(initial ?? null);
+  const [server, setServer] = useState<Ok | null>(initial?.ok ? initial : null);
   const [offline, setOffline] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [remote, setRemote] = useState<RemoteServer[]>([]);

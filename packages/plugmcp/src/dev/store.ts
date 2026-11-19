@@ -54,6 +54,46 @@ let total = 0;
 let failed = 0;
 const perServer = new Map<string, { total: number; failed: number }>();
 
+// The log is kept on disk too, so it is still there after the dev server restarts.
+let file: string | null = null;
+let saving: ReturnType<typeof setTimeout> | null = null;
+
+function save(): void {
+  if (!file || saving) return;
+  saving = setTimeout(() => {
+    saving = null;
+    if (!file) return;
+    try {
+      const folder = join(file, "..");
+      if (!existsSync(folder)) mkdirSync(folder, { recursive: true });
+      writeFileSync(file, JSON.stringify({ calls }));
+    } catch {
+      // A log that cannot be saved is still shown until the server stops.
+    }
+  }, 400);
+  saving.unref?.();
+}
+
+/** Read the saved log from this folder and keep writing to it. */
+export function keepCalls(home: string): void {
+  file = join(home, ".plugmcp", "calls.json");
+  const saved = readJson<{ calls?: CallRecord[] }>(file, {}).calls ?? [];
+  calls.length = 0;
+  perServer.clear();
+  total = 0;
+  failed = 0;
+  for (const call of saved.slice(0, MAX)) {
+    calls.push(call);
+    total += 1;
+    if (!call.ok) failed += 1;
+    const count = perServer.get(call.server) ?? { total: 0, failed: 0 };
+    count.total += 1;
+    if (!call.ok) count.failed += 1;
+    perServer.set(call.server, count);
+    nextId = Math.max(nextId, call.id + 1);
+  }
+}
+
 const clip = (value: unknown): unknown => {
   const text = JSON.stringify(value) ?? "";
   return text.length > 20_000 ? `${text.slice(0, 20_000)} ... (cut)` : value;
@@ -68,6 +108,7 @@ export function recordCall(entry: Omit<CallRecord, "id" | "at">): void {
   perServer.set(entry.server, count);
   calls.unshift({ ...entry, input: clip(entry.input), output: clip(entry.output), id: nextId++, at: Date.now() });
   if (calls.length > MAX) calls.length = MAX;
+  save();
 }
 
 export const callLog = () => ({ total, failed, calls });
@@ -80,13 +121,15 @@ export function clearCalls(): void {
   total = 0;
   failed = 0;
   perServer.clear();
+  save();
 }
 
 /**
  * Tools report each call through a process-wide hook, so calls from Cursor,
  * Claude or any other client show in the Studio next to the Studio's own.
  */
-export function listenForCalls(): void {
+export function listenForCalls(home?: string): void {
+  if (home) keepCalls(home);
   (globalThis as Record<symbol, unknown>)[Symbol.for("plugmcp.calls")] = (entry: {
     server?: string;
     tool: string;

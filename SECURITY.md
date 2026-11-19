@@ -11,6 +11,8 @@ Please do not open a public issue for a security problem. Use GitHub's private r
 - **Views are sandboxed.** A view runs in a frame with a null origin. It cannot read the Studio page, your keys, or the Studio's local API.
 - **The Studio edits only your code.** Its editor and the New tool dialog can read and write the server file, files in `views/` and files in `agents/`. Nothing else in the project, including `.env`, can be opened through the Studio.
 - **Describing a tool uses your model.** When you ask the Studio to write a tool, in the New tool dialog or in the Playground chat, your description and your server file are sent to the model provider you chose, with your key. Code that does not load is removed again. Read what was written before you ship it.
+- **Logos in the Directory page** are the GitHub pictures of the listed projects, loaded from github.com when you open that page.
+- **The call log is kept locally.** The last 300 tool calls, with their input and result, are saved in `.plugmcp/calls.json` in your project. That folder is git-ignored.
 - **No telemetry.** Nothing is sent to PlugMCP unless you run `search`, `add`, `list`, `login` or `deploy`, open the Studio's Directory page or Overview, or answer the one-time question in `create-plugmcp`.
 
 ## When you put a server online

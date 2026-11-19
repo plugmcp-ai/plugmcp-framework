@@ -84,7 +84,7 @@ export function Tools({ selected, onNew }: { selected?: string; onNew: () => voi
               }
             >
               {tools.length
-                ? "Choose a tool on the left to run it, see its view, and edit its code."
+                ? "Choose a tool on the left to see its schema, run it, and edit its code."
                 : `A tool is one function a model can call. Add one here, or write server.tool(...) in ${server.entry}.`}
             </Empty>
           </div>
@@ -94,7 +94,7 @@ export function Tools({ selected, onNew }: { selected?: string; onNew: () => voi
   );
 }
 
-type Tab = "test" | "code" | "view" | "schema";
+type Tab = "schema" | "code" | "view";
 
 /** Change a tool's description without opening the code. */
 function Description({ tool, onSaved }: { tool: Tool; onSaved: () => void }) {
@@ -149,11 +149,10 @@ function Description({ tool, onSaved }: { tool: Tool; onSaved: () => void }) {
 }
 
 export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: Tool; entry: string; onSaved: () => void; back?: string }) {
-  const [tab, setTab] = useState<Tab>("test");
-  const tabs: Array<{ id: Tab; label: string }> = [{ id: "test", label: "Test" }];
+  const [tab, setTab] = useState<Tab>("schema");
+  const tabs: Array<{ id: Tab; label: string }> = [{ id: "schema", label: "Schema" }];
   if (tool.local) tabs.push({ id: "code", label: "Code" });
   if (tool.local && tool.viewFile) tabs.push({ id: "view", label: "View code" });
-  tabs.push({ id: "schema", label: "Schema" });
 
   return (
     <div className="detail">
@@ -165,7 +164,7 @@ export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: To
           <div className="row">
             <h1 className="truncate">{tool.name}</h1>
             <CopyButton value={tool.name} label="Copy the name" />
-            {tool.view ? <span className="pill pill-signal">Has a view</span> : null}
+            <span className={`pill${tool.view ? " pill-signal" : ""}`}>{tool.view ? "MCP app" : "Tool"}</span>
             {!tool.local ? <span className="pill">{tool.server}</span> : null}
           </div>
           <Description key={tool.description} tool={tool} onSaved={onSaved} />
@@ -175,12 +174,17 @@ export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: To
         </a>
       </div>
 
-      <Seg value={tab} options={tabs} onChange={setTab} />
-
-      {tab === "test" ? <TestPane tool={tool} /> : null}
-      {tab === "code" ? <Editor path={entry} onSaved={onSaved} /> : null}
-      {tab === "view" && tool.viewFile ? <Editor path={tool.viewFile} onSaved={onSaved} /> : null}
-      {tab === "schema" ? <SchemaPane schema={tool.inputSchema} /> : null}
+      <div className="tool-body">
+        <div className="stack" style={{ minWidth: 0 }}>
+          <Seg value={tab} options={tabs} onChange={setTab} />
+          {tab === "schema" ? <SchemaPane tool={tool} /> : null}
+          {tab === "code" ? <Editor path={entry} onSaved={onSaved} /> : null}
+          {tab === "view" && tool.viewFile ? <Editor path={tool.viewFile} onSaved={onSaved} /> : null}
+        </div>
+        <aside className="tool-run" aria-label="Run the tool">
+          <TestPane tool={tool} />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -225,7 +229,7 @@ function TestPane({ tool }: { tool: Tool }) {
         }}
       >
         <div className="panel-head">
-          <h2 className="section-title">Input</h2>
+          <h2 className="section-title">Try it</h2>
           <button className="btn btn-primary btn-sm" type="submit" disabled={busy}>
             <IconPlayerPlay size={14} stroke={2} /> {busy ? "Running" : "Run tool"}
           </button>
@@ -258,7 +262,7 @@ function TestPane({ tool }: { tool: Tool }) {
         <div className="panel-pad stack">
           {error ? <p className="small fault">{error}</p> : null}
           {!sent && !error ? (
-            <p className="muted small">Fill in the input and run the tool. {tool.view ? "Its view appears here the way a chat client shows it." : "The result appears here."}</p>
+            <p className="muted small">Fill in the input and press Run. {tool.view ? "Its view appears here the way a chat client shows it." : "The result appears here."}</p>
           ) : null}
           {tool.view && sent ? (
             <div className="view-stage" hidden={show !== "view"}>
@@ -279,36 +283,63 @@ const typeName = (schema: JsonSchema): string => {
   return type === "array" && schema.items ? `${typeName(schema.items)} list` : (type ?? "any");
 };
 
-function SchemaPane({ schema }: { schema: JsonSchema }) {
+function SchemaPane({ tool }: { tool: Tool }) {
+  const schema = tool.inputSchema;
   const fields = Object.entries(schema.properties ?? {});
+  const [raw, setRaw] = useState(false);
   return (
     <div className="stack">
       <div className="panel">
         <div className="panel-head">
-          <h2 className="section-title">Input fields</h2>
-          <span className="muted small">{plural(fields.length, "field")}</span>
+          <h2 className="section-title">Input</h2>
+          <span className="muted small">{fields.length ? `${plural(fields.length, "field")} the model fills in` : "Nothing to fill in"}</span>
         </div>
-        {fields.length === 0 ? <p className="panel-pad muted small">This tool takes no input.</p> : null}
-        {fields.map(([name, field]) => (
-          <div className="schema-row" key={name}>
-            <span className="mono">
-              {name}
-              {schema.required?.includes(name) ? null : <span className="muted"> ?</span>}
-            </span>
-            <span className="muted">{typeName(field)}</span>
-            <span className="muted">
-              {field.enum ? `${field.enum.map(String).join(", ")}. ` : ""}
-              {field.description ?? ""}
-            </span>
-          </div>
-        ))}
+        {fields.length === 0 ? <p className="panel-pad muted small">This tool takes no input. The model calls it as is.</p> : null}
+        {fields.map(([name, field]) => {
+          const required = schema.required?.includes(name) ?? false;
+          return (
+            <div className="field-row" key={name}>
+              <div className="field-row-top">
+                <span className="mono field-name">{name}</span>
+                <span className="pill">{typeName(field)}</span>
+                <span className={`pill${required ? " pill-signal" : ""}`}>{required ? "Required" : "Optional"}</span>
+              </div>
+              <p className="field-text">{field.description ?? "No description. Add .describe(...) in the code so the model knows what to send."}</p>
+              {field.enum ? (
+                <div className="row-wrap">
+                  {field.enum.map((value) => (
+                    <span key={String(value)} className="node-chip mono">
+                      {String(value)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {field.default !== undefined ? <p className="hint">Default: <span className="mono">{JSON.stringify(field.default)}</span></p> : null}
+            </div>
+          );
+        })}
       </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2 className="section-title">Output</h2>
+          <span className={`pill${tool.view ? " pill-signal" : ""}`}>{tool.view ? "Data and a view" : "Data"}</span>
+        </div>
+        <p className="panel-pad muted small">
+          {tool.view
+            ? `The tool returns data, and ${tool.viewFile ?? "its view"} draws it inside the chat. That makes this tool an MCP app.`
+            : "The tool returns data the model reads. Add a view file to show it as a card in the chat."}
+        </p>
+      </div>
+
       <div>
         <div className="section-head">
-          <h2 className="section-title">JSON Schema</h2>
-          <CopyButton value={JSON.stringify(schema, null, 2)} label="Copy the schema" />
+          <button type="button" className="link small" style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }} onClick={() => setRaw((open) => !open)} aria-expanded={raw}>
+            {raw ? "Hide" : "Show"} the JSON Schema
+          </button>
+          {raw ? <CopyButton value={JSON.stringify(schema, null, 2)} label="Copy the schema" /> : null}
         </div>
-        <pre className="code">{JSON.stringify(schema, null, 2)}</pre>
+        {raw ? <pre className="code">{JSON.stringify(schema, null, 2)}</pre> : null}
       </div>
     </div>
   );

@@ -13,6 +13,17 @@ const clean = (text: string | undefined) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** Most listings come from GitHub, so the owner's picture stands in as a logo. */
+function Logo({ server }: { server: DirectoryServer }) {
+  const owner = /^io\.github\.([A-Za-z0-9-]+)$/.exec(server.publisher ?? "")?.[1];
+  const [failed, setFailed] = useState(false);
+  if (!owner || failed) return <Glyph name={server.name} />;
+  return <img className="glyph logo" src={`https://github.com/${owner}.png?size=72`} alt="" loading="lazy" onError={() => setFailed(true)} />;
+}
+
+const PICKS = 4;
+const SHOWN = 8;
+
 export function DirectoryPage() {
   const { remote, reloadRemote } = useStudio();
   const [query, setQuery] = useState("");
@@ -53,7 +64,7 @@ export function DirectoryPage() {
     try {
       await api.addServer({ slug: server.slug });
       await reloadRemote();
-      setNotice({ slug: server.slug, ok: true, text: "Added. Its tools are in the playground now." });
+      setNotice({ slug: server.slug, ok: true, text: "Added. Its tools are in the chat now." });
     } catch (cause) {
       setNotice({ slug: server.slug, ok: false, text: errorText(cause) });
     } finally {
@@ -65,10 +76,10 @@ export function DirectoryPage() {
     <div className="page">
       <PageHead
         title="Directory"
-        lede="Search the PlugMCP directory before you build. Hosted servers can join your playground so you can try them next to your own tools."
+        lede="A few servers from the PlugMCP directory to try next to your own. The full directory, with every server and its install steps, is on plugmcp.ai."
       >
         <a className="btn btn-outline" href={`https://plugmcp.ai/mcp${query ? `?q=${encodeURIComponent(query)}` : ""}`} target="_blank" rel="noopener">
-          Open plugmcp.ai <IconExternalLink size={14} stroke={1.75} />
+          Browse all on plugmcp.ai <IconExternalLink size={14} stroke={1.75} />
         </a>
       </PageHead>
 
@@ -79,13 +90,13 @@ export function DirectoryPage() {
         </div>
         <label className="check">
           <input type="checkbox" checked={remoteOnly} onChange={(event) => setRemoteOnly(event.target.checked)} />
-          Only hosted servers I can add to the playground
+          Only hosted servers I can add to the chat
         </label>
       </div>
 
       {remote.length ? (
         <section>
-          <h2 className="section-title" style={{ marginBottom: 10 }}>In your playground</h2>
+          <h2 className="section-title" style={{ marginBottom: 10 }}>In your chat</h2>
           <ul className="panel rows">
             {remote.map((server) => (
               <li key={server.name} className="rowlink">
@@ -113,16 +124,16 @@ export function DirectoryPage() {
 
       <section>
         <div className="section-head">
-          <h2 className="section-title">{query ? "Results" : "Trending now"}</h2>
+          <h2 className="section-title">{query ? "Results" : "Popular on PlugMCP"}</h2>
           {total !== null && query ? <span className="muted small">{total.toLocaleString()} found</span> : null}
         </div>
         {error ? <p className="small fault">{error}</p> : null}
         {!error && !loading && results.length === 0 ? <p className="muted">Nothing matched. That may be a gap worth filling with your own server.</p> : null}
         <ul className={`cards${loading ? " is-loading" : ""}`}>
-          {results.map((server) => (
+          {results.slice(0, query ? SHOWN : PICKS).map((server) => (
             <li key={server.slug} className="card">
               <div className="row">
-                <Glyph name={server.name} />
+                <Logo server={server} />
                 <a className="card-title grow truncate" href={server.url} target="_blank" rel="noopener">
                   <span className="truncate">{server.name}</span> <IconExternalLink size={13} stroke={1.75} />
                 </a>
@@ -140,7 +151,7 @@ export function DirectoryPage() {
                 </div>
                 {server.remote ? (
                   <button type="button" className="btn btn-secondary btn-sm" disabled={pending === server.slug} onClick={() => void add(server)}>
-                    <IconPlus size={13} stroke={2} /> {pending === server.slug ? "Adding" : "Add to playground"}
+                    <IconPlus size={13} stroke={2} /> {pending === server.slug ? "Adding" : "Add to chat"}
                   </button>
                 ) : (
                   <a className="btn btn-ghost btn-sm" href={server.url} target="_blank" rel="noopener">
@@ -152,6 +163,12 @@ export function DirectoryPage() {
             </li>
           ))}
         </ul>
+        {!error && results.length ? (
+          <a className="more-link" href={`https://plugmcp.ai/mcp${query ? `?q=${encodeURIComponent(query)}` : ""}`} target="_blank" rel="noopener">
+            {query && total !== null && total > SHOWN ? `See all ${total.toLocaleString()} results on plugmcp.ai` : `See all ${total !== null ? `${total.toLocaleString()} ` : ""}servers on plugmcp.ai`}
+            <IconExternalLink size={14} stroke={1.75} />
+          </a>
+        ) : null}
       </section>
     </div>
   );

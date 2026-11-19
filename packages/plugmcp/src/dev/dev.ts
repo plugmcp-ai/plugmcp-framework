@@ -97,7 +97,7 @@ export async function startDev(options: DevOptions): Promise<DevServer> {
     vite.moduleGraph.invalidateAll();
     return loadServer(project);
   };
-  listenForCalls();
+  listenForCalls(home);
 
   // In dev a view is a small page that loads its code from this server, so edits hot reload.
   const getViews = (project: Project): BuildOptions["views"] => {
