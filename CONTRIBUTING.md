@@ -33,7 +33,7 @@ pnpm dev
 | `packages/create-plugmcp/` | The scaffolder and its templates |
 | `examples/weather/` | The project used for manual testing and by the tests |
 
-To work on the Studio with hot reload, run `pnpm exec plugmcp dev --port 3333` in `examples/weather`, then `pnpm dev` in `packages/studio`.
+To work on the Studio with hot reload, run `pnpm dev` in `examples/weather` (port 3333), then `pnpm dev` in `packages/studio`.
 
 ## Before you open a pull request
 

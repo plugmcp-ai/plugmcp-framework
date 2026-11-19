@@ -159,7 +159,7 @@ async function main() {
       }
       console.log(`\n  ${data.total} server${data.total === 1 ? "" : "s"} for "${query}" ${dim("in the PlugMCP directory")}\n`);
       for (const server of data.servers.slice(0, Number(flags.limit ?? 8))) {
-        const tags = [server.verified ? "verified" : "", server.remote ? "hosted" : "", server.stars ? `${server.stars} stars` : ""].filter(Boolean).join(", ");
+        const tags = [server.verified ? "verified" : "", server.remote ? "hosted" : "", server.stars ? `${server.stars} star${server.stars === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
         const summary = (server.summary ?? "").replace(/\s+/g, " ").slice(0, 110);
         console.log(`  ${bold(server.name)} ${dim(tags)}`);
         if (summary) console.log(`    ${summary}`);
