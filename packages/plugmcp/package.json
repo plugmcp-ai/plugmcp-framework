@@ -39,7 +39,7 @@
     "node": ">=20.19"
   },
   "bin": {
-    "plugmcp": "./dist/cli/index.js"
+    "plugmcp": "dist/cli/index.js"
   },
   "files": [
     "dist",

@@ -42,7 +42,7 @@
     "node": ">=20.19"
   },
   "bin": {
-    "create-plugmcp": "./index.js"
+    "create-plugmcp": "index.js"
   },
   "files": [
     "index.js",
