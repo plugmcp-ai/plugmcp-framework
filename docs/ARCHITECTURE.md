@@ -1,4 +1,4 @@
-# PlugMCP SDK: how it is built
+# PlugMCP Framework: how it is built
 
 This is the full picture of the open-source SDK: what each part is, how the parts talk to each other, what is finished, and what is not.
 
@@ -17,7 +17,7 @@ A developer installs one package, `plugmcp`. They write MCP servers in TypeScrip
 
 | Package | What it is | Published |
 |---|---|---|
-| `packages/plugmcp` | The SDK, the command line and the dev server. Ships the Studio as ready-made static files. | Not yet |
+| `packages/plugmcp` | The framework, the command line and the dev server. Ships the Studio as ready-made static files. | Not yet |
 | `packages/studio` | The Studio web app (React). Built once, then copied into `plugmcp`. Never built on a user's machine. | Never, it is internal |
 | `packages/create-plugmcp` | `npx create-plugmcp my-server`. Templates: `starter`, `blank`, `agent`. | Not yet |
 
@@ -47,7 +47,7 @@ There is one agent in the Studio, the Chat page, and it exists for testing. It i
   Outside (optional)   your model provider (your key), plugmcp.ai directory, plugmcp.ai hosting
 ```
 
-### 1. The SDK (`packages/plugmcp/src`)
+### 1. The framework (`packages/plugmcp/src`)
 
 | File | Job |
 |---|---|
@@ -134,7 +134,7 @@ There is no telemetry.
 
 - **Directory**: the Studio and `plugmcp search` read the public directory. Results link to their pages on plugmcp.ai.
 - **Listing**: `plugmcp list` submits a server to the directory.
-- **Hosting**: `plugmcp deploy --url` puts a server the user already hosts behind a PlugMCP address, with keys and call logs. The SDK does not host code.
+- **Hosting**: `plugmcp deploy --url` puts a server the user already hosts behind a PlugMCP address, with keys and call logs. The framework does not host code.
 - **Backlinks**: the generated README badge, the server's landing page and the Studio all link to plugmcp.ai.
 
 ## What is finished and checked

@@ -27,7 +27,7 @@ npx create-plugmcp my-agent  --template agent     # also runs the tools in the C
 | `--no-install` | Skip installing dependencies |
 | `--yes` | Ask nothing |
 
-Full documentation: [github.com/plugmcp-ai/sdk](https://github.com/plugmcp-ai/sdk)
+Full documentation: [github.com/plugmcp-ai/plugmcp-framework](https://github.com/plugmcp-ai/plugmcp-framework)
 
 ## License
 

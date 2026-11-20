@@ -1,0 +1,49 @@
+name: Publish
+
+# Publishes plugmcp and create-plugmcp to npm when a tag like v0.1.0 is pushed.
+# It signs in with npm Trusted Publishing, so there is no token in this repo.
+# Before the first run: publish each package once by hand, then add this workflow
+# as a Trusted Publisher for both packages on npmjs.com. CONTRIBUTING.md has the steps.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - name: Tag matches both package versions
+        run: |
+          test "v$(node -p 'require("./packages/plugmcp/package.json").version')" = "$GITHUB_REF_NAME"
+          test "v$(node -p 'require("./packages/create-plugmcp/package.json").version')" = "$GITHUB_REF_NAME"
+
+      # setup-node writes an empty auth token, which makes npm skip Trusted Publishing.
+      - name: Use Trusted Publishing
+        run: |
+          NPMRC_PATH="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          if [ -f "$NPMRC_PATH" ]; then sed -i '/_authToken/d' "$NPMRC_PATH"; fi
+
+      - name: Publish plugmcp
+        working-directory: packages/plugmcp
+        run: npm publish --provenance --access public
+
+      - name: Publish create-plugmcp
+        working-directory: packages/create-plugmcp
+        run: npm publish --provenance --access public

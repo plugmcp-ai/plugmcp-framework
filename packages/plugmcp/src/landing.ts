@@ -65,7 +65,7 @@ footer a{color:#C4C0B9}
 ${tools.length ? `<ul>${toolRows}</ul>` : `<p class="muted">This server has no tools yet.</p>`}
 <h2>Connect</h2>
 ${code}
-<footer>Built with the <a href="https://github.com/plugmcp-ai/sdk">PlugMCP SDK</a>. Find more servers in the <a href="${DIRECTORY_URL}/mcp">PlugMCP directory</a>.</footer>
+<footer>Built with the <a href="https://github.com/plugmcp-ai/plugmcp-framework">PlugMCP Framework</a>. Find more servers in the <a href="${DIRECTORY_URL}/mcp">PlugMCP directory</a>.</footer>
 </main>
 </body>
 </html>`;

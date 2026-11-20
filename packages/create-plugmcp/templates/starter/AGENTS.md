@@ -1,6 +1,6 @@
 # Notes for coding agents
 
-This is an MCP server built with the PlugMCP SDK (`plugmcp`).
+This is an MCP server built with the PlugMCP Framework (`plugmcp`).
 
 ## How it is laid out
 

@@ -2,7 +2,7 @@
 
 {{about}}
 
-Built with the [PlugMCP SDK](https://github.com/plugmcp-ai/sdk).
+Built with the [PlugMCP Framework](https://github.com/plugmcp-ai/plugmcp-framework).
 
 ## Run it
 

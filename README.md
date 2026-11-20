@@ -2,7 +2,7 @@
 
 **Build, test and ship MCP servers and MCP apps in TypeScript. Write a tool or ask the built-in chat to write it, see every server and tool on a canvas, edit schemas in place, save tests, and chat with your own model key. Open source, local, no account.**
 
-[![npm](https://img.shields.io/npm/v/plugmcp?color=0099FF)](https://www.npmjs.com/package/plugmcp)
+[![npm](https://img.shields.io/badge/npm-plugmcp-0099FF)](https://www.npmjs.com/package/plugmcp)
 [![license](https://img.shields.io/badge/license-MIT-0099FF)](LICENSE)
 [![directory](https://img.shields.io/badge/directory-95%2C000%2B%20servers-0099FF)](https://plugmcp.ai/mcp)
 
@@ -91,7 +91,7 @@ export default function WeatherCard() {
 }
 ```
 
-That is the whole integration. The SDK bundles the view into one self-contained HTML file, serves it as a `ui://` resource with the `text/html;profile=mcp-app` type, and links it to the tool, following the [MCP Apps specification](https://github.com/modelcontextprotocol/ext-apps), the open standard that Claude, ChatGPT, VS Code and other clients implement.
+That is the whole integration. The framework bundles the view into one self-contained HTML file, serves it as a `ui://` resource with the `text/html;profile=mcp-app` type, and links it to the tool, following the [MCP Apps specification](https://github.com/modelcontextprotocol/ext-apps), the open standard that Claude, ChatGPT, VS Code and other clients implement.
 
 `useTool` gives you:
 
@@ -161,7 +161,7 @@ No server to start and no network hop. Scaffold a working example with `npx crea
 
 ## Going live
 
-The SDK does not need PlugMCP's cloud. `plugmcp build` produces a plain Node server you can run on Railway, Fly, a container, or your own machine.
+The framework does not need PlugMCP's cloud. `plugmcp build` produces a plain Node server you can run on Railway, Fly, a container, or your own machine.
 
 ```bash
 plugmcp build
@@ -221,7 +221,7 @@ Node 20.19 or newer. Views use React 18 or 19.
 
 | Package | |
 |---|---|
-| [`plugmcp`](packages/plugmcp) | The SDK, the command line and the Studio. |
+| [`plugmcp`](packages/plugmcp) | The framework, the command line and the Studio. |
 | [`create-plugmcp`](packages/create-plugmcp) | The project scaffolder. |
 
 ## Contributing

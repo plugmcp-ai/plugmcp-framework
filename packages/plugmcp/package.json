@@ -7,7 +7,7 @@
   "homepage": "https://plugmcp.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/plugmcp-ai/sdk.git",
+    "url": "git+https://github.com/plugmcp-ai/plugmcp-framework.git",
     "directory": "packages/plugmcp"
   },
   "keywords": [
@@ -111,6 +111,6 @@
     }
   },
   "bugs": {
-    "url": "https://github.com/plugmcp-ai/sdk/issues"
+    "url": "https://github.com/plugmcp-ai/plugmcp-framework/issues"
   }
 }

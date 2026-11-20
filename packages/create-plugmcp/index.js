@@ -127,7 +127,7 @@ async function main() {
   if (existsSync(join(target, "gitignore"))) renameSync(join(target, "gitignore"), join(target, ".gitignore"));
 
   const version = /** @type {{ version: string }} */ (JSON.parse(readFileSync(join(here, "package.json"), "utf8"))).version;
-  // --link is for working on the SDK itself: point the project at a local build.
+  // --link is for working on the framework itself: point the project at a local build.
   const plugmcp = typeof flags.link === "string" ? `file:${resolve(flags.link).replace(/\\/g, "/")}` : `^${version}`;
   walk(target, (file) => {
     if (!/\.(json|md|ts|tsx|example)$/.test(file)) return;
@@ -135,7 +135,7 @@ async function main() {
     const next = text
       .replaceAll("{{name}}", basename(target))
       .replaceAll("{{plugmcp}}", plugmcp)
-      .replaceAll("{{about}}", about || "An MCP server built with the PlugMCP SDK.");
+      .replaceAll("{{about}}", about || "An MCP server built with the PlugMCP Framework.");
     if (next !== text) writeFileSync(file, next);
   });
 

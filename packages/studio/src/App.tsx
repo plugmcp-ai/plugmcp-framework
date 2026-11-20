@@ -184,7 +184,7 @@ function Shell() {
             <span className="go-live-title">Go live on plugmcp.ai</span>
             <span className="go-live-sub">Hosting, API keys, call logs and a directory page for this server.</span>
           </a>
-          <a className="nav-item" href="https://github.com/plugmcp-ai/sdk#readme" target="_blank" rel="noopener">
+          <a className="nav-item" href="https://github.com/plugmcp-ai/plugmcp-framework#readme" target="_blank" rel="noopener">
             <IconBook2 size={16} stroke={1.75} aria-hidden="true" />
             Docs
           </a>

@@ -1,13 +1,13 @@
 # Contributing
 
-Thanks for helping. This repo holds the PlugMCP SDK, its command line, the local Studio and the project scaffolder.
+Thanks for helping. This repo holds the PlugMCP Framework, its command line, the local Studio and the project scaffolder.
 
 ## Set up
 
 You need Node 20.19 or newer and pnpm 10.
 
 ```bash
-git clone https://github.com/plugmcp-ai/sdk.git
+git clone https://github.com/plugmcp-ai/plugmcp-framework.git
 cd sdk
 pnpm install
 pnpm build
@@ -57,3 +57,24 @@ Then check the change by hand in the Studio. A tool call that works in a test ca
 ## Reporting bugs
 
 Open an issue with what you ran, what you expected, and what happened. The output of `plugmcp version` and your Node version help.
+
+## Releasing
+
+Both packages are published to npm with the same version.
+
+The first release is done by hand, by someone signed in to the npm account that owns the names:
+
+```bash
+pnpm install
+pnpm build
+pnpm test
+cd packages/plugmcp && npm publish --access public
+cd ../create-plugmcp && npm publish --access public
+```
+
+After that, add `.github/workflows/publish.yml` of this repo as a Trusted Publisher for `plugmcp` and for `create-plugmcp` on npmjs.com (package settings, Trusted Publisher, GitHub Actions). From then on a release is:
+
+1. Set the new version in `packages/plugmcp/package.json` and `packages/create-plugmcp/package.json`.
+2. Commit, then tag it: `git tag v0.1.1 && git push --tags`.
+
+The workflow builds, tests and publishes both packages. No npm token is stored in the repo.
