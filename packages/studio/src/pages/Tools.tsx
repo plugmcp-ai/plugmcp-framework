@@ -166,6 +166,7 @@ export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: To
             <h1 className="truncate">{tool.name}</h1>
             <CopyButton value={tool.name} label="Copy the name" />
             <span className={`pill${tool.view ? " pill-signal" : ""}`}>{tool.view ? "MCP app" : "Tool"}</span>
+            {tool.appOnly ? <span className="pill">App only</span> : null}
             {!tool.local ? <span className="pill">{tool.server}</span> : null}
           </div>
           <Description key={tool.description} tool={tool} onSaved={onSaved} />

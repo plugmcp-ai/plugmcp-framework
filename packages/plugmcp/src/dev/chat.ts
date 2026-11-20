@@ -28,6 +28,8 @@ export interface ToolInfo {
   inputSchema: Record<string, unknown>;
   /** ui:// address of the tool's view, if it has one. */
   view: string | null;
+  /** True when only views may call the tool, so the model never sees it. */
+  appOnly: boolean;
   local: boolean;
 }
 
@@ -44,7 +46,8 @@ const safe = (text: string) => text.replace(/[^A-Za-z0-9_-]/g, "_");
 export async function listTools(client: Client, server: RemoteServer, local: boolean): Promise<ToolInfo[]> {
   const { tools } = await client.listTools();
   return tools.map((tool) => {
-    const meta = tool._meta as { ui?: { resourceUri?: string }; "ui/resourceUri"?: string } | undefined;
+    const meta = tool._meta as { ui?: { resourceUri?: string; visibility?: string[] }; "ui/resourceUri"?: string } | undefined;
+    const visibility = meta?.ui?.visibility;
     return {
       id: local ? tool.name : `${safe(server.name)}__${safe(tool.name)}`.slice(0, 64),
       name: tool.name,
@@ -53,6 +56,7 @@ export async function listTools(client: Client, server: RemoteServer, local: boo
       description: tool.description,
       inputSchema: tool.inputSchema as Record<string, unknown>,
       view: meta?.ui?.resourceUri ?? meta?.["ui/resourceUri"] ?? null,
+      appOnly: Array.isArray(visibility) && visibility.length > 0 && !visibility.includes("model"),
       local,
     };
   });
@@ -166,6 +170,7 @@ export async function streamChat(
       }
       clients.push(client);
       for (const info of await listTools(client, server, local)) {
+        if (info.appOnly) continue; // Only views may call these.
         if (context.allow && !context.allow.includes(info.id)) continue;
         tools[info.id] = dynamicTool({
           description: info.description ?? info.title ?? info.name,

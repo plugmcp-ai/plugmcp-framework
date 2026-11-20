@@ -20,6 +20,21 @@ export interface ViewOptions {
   csp?: ViewCsp;
   /** Ask the host to draw a border around the view. */
   prefersBorder?: boolean;
+  /** Display modes the view can draw. Omit for inline only. */
+  displayModes?: DisplayMode[];
+}
+
+export type DisplayMode = "inline" | "fullscreen" | "pip";
+
+/** Name of the meta tag that carries view options into the view's HTML. */
+export const VIEW_META_NAME = "plugmcp-view";
+
+/** Add the view options a view needs at start-up to its HTML. */
+export function withViewMeta(html: string, options: { displayModes?: DisplayMode[] }): string {
+  if (!options.displayModes?.length) return html;
+  const content = JSON.stringify({ displayModes: options.displayModes }).replace(/'/g, "&#39;");
+  const tag = `<meta name="${VIEW_META_NAME}" content='${content}'>`;
+  return html.includes("</head>") ? html.replace("</head>", `${tag}</head>`) : `${tag}${html}`;
 }
 
 type Schema = z.ZodType;
@@ -36,6 +51,8 @@ export interface ToolConfig<I extends Schema | undefined = undefined, O extends 
   annotations?: ToolAnnotations;
   /** Options for the view at `views/<name>.tsx`, or `false` to ignore that file. */
   view?: ViewOptions | false;
+  /** Who may call the tool. Default: the model and views. `["app"]` hides it from the model. */
+  visibility?: Array<"model" | "app">;
 }
 
 export type ToolResult =
@@ -164,17 +181,32 @@ export class PlugServer {
           uri,
           { title: `${config.title ?? config.name} view`, mimeType: VIEW_MIME_TYPE },
           async () => ({
-            contents: [{ uri, mimeType: VIEW_MIME_TYPE, text: await view.html(), _meta: { ui: uiMeta } }],
+            contents: [
+              {
+                uri,
+                mimeType: VIEW_MIME_TYPE,
+                text: withViewMeta(await view.html(), { displayModes: viewOptions?.displayModes }),
+                _meta: { ui: uiMeta },
+              },
+            ],
           }),
         );
       }
+      const visibility = config.visibility?.length ? config.visibility : undefined;
+      const toolMeta =
+        uri || visibility
+          ? {
+              ui: { ...(uri ? { resourceUri: uri } : {}), ...(visibility ? { visibility } : {}) },
+              ...(uri ? { "openai/outputTemplate": uri } : {}),
+            }
+          : undefined;
       const tool = {
         ...(config.title ? { title: config.title } : {}),
         ...(config.description ? { description: config.description } : {}),
         ...(config.input ? { inputSchema: config.input } : {}),
         ...(config.output ? { outputSchema: config.output } : {}),
         ...(config.annotations ? { annotations: config.annotations } : {}),
-        ...(uri ? { _meta: { ui: { resourceUri: uri }, "openai/outputTemplate": uri } } : {}),
+        ...(toolMeta ? { _meta: toolMeta } : {}),
       };
       const run = async (input: unknown, ctx: unknown): Promise<CallToolResult> => {
         const started = performance.now();

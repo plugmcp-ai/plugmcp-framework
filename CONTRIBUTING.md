@@ -8,7 +8,7 @@ You need Node 20.19 or newer and pnpm 10.
 
 ```bash
 git clone https://github.com/plugmcp-ai/plugmcp-framework.git
-cd sdk
+cd plugmcp-framework
 pnpm install
 pnpm build
 ```

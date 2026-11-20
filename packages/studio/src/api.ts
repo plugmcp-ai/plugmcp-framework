@@ -6,6 +6,7 @@ export interface Tool {
   description?: string;
   inputSchema: JsonSchema;
   view: string | null;
+  appOnly?: boolean;
   local: boolean;
   viewFile?: string | null;
 }

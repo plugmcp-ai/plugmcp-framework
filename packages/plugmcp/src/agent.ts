@@ -16,7 +16,9 @@ import type { PlugServer } from "./index.js";
  */
 export function toAgentSdk(server: PlugServer) {
   const name = slugify(server.info.name);
-  const tools = [...server.tools.values()].map(({ config, handler }) => {
+  // Tools marked for views only are not for the model.
+  const visible = [...server.tools.values()].filter(({ config }) => !config.visibility || config.visibility.includes("model"));
+  const tools = visible.map(({ config, handler }) => {
     // The Agent SDK takes the fields of a Zod object, not the object itself.
     const shape = (config.input as z.ZodObject | undefined)?.shape ?? {};
     return tool(config.name, config.description ?? config.title ?? config.name, shape, async (args: unknown, extra: unknown) => {
@@ -32,6 +34,6 @@ export function toAgentSdk(server: PlugServer) {
     /** Pass as `options.mcpServers`. */
     mcpServers: { [name]: createSdkMcpServer({ name, version: server.info.version ?? "0.1.0", tools }) },
     /** Pass as `options.allowedTools` so the agent may call them without asking. */
-    allowedTools: [...server.tools.keys()].map((toolName) => `mcp__${name}__${toolName}`),
+    allowedTools: visible.map(({ config }) => config.name).map((toolName) => `mcp__${name}__${toolName}`),
   };
 }

@@ -41,6 +41,11 @@ export default function View() {
 
 - `output` is the object the handler returned.
 - `callTool(name, args)` calls any tool on this server from the view.
+- `visibility: ["app"]` on a tool hides it from the model, for tools only a view calls, such as saving.
+- `view: { displayModes: ["inline", "fullscreen"] }` lets the view go full screen with `requestDisplayMode("fullscreen")`. `displayMode` says which mode it is in.
+- `partialInput` holds the arguments while the model is still writing them. Its last item may be cut short.
+- `updateModelContext(text)` tells the model what the user did in the view without starting a reply. It returns `false` when the host cannot do that.
+- Every file at the top of `views/` is a view. Put code that views share in `src/`.
 - A view runs in a sandboxed frame. It cannot fetch outside addresses unless the tool sets `view: { csp: { connectDomains: [...] } }`. Prefer fetching in the tool handler and passing data through `output`.
 - Support both `theme` values, `light` and `dark`.
 

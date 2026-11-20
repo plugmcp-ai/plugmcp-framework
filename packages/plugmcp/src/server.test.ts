@@ -84,3 +84,59 @@ describe("serveHttp", () => {
     expect(html).toContain("plugmcp.ai");
   });
 });
+
+describe("app-only tools and display modes", () => {
+  const app = createServer({ name: "App Server" });
+  app.tool(
+    { name: "board", description: "Show a board", view: { displayModes: ["inline", "fullscreen"] }, visibility: ["model", "app"] },
+    () => ({ ok: true }),
+  );
+  app.tool({ name: "save_board", description: "Save the board", visibility: ["app"] }, () => ({ saved: true }));
+  app.tool({ name: "plain", description: "No view options" }, () => "plain");
+
+  let appRunning: RunningServer;
+  let appClient: Client;
+
+  beforeAll(async () => {
+    appRunning = await serveHttp(app, {
+      port: 4830,
+      views: {
+        board: { html: () => "<!doctype html><html><head><title>v</title></head><body></body></html>" },
+        plain: { html: () => "<!doctype html><html><head></head><body></body></html>" },
+      },
+    });
+    appClient = new Client({ name: "test", version: "1.0.0" });
+    await appClient.connect(new StreamableHTTPClientTransport(new URL(appRunning.url)));
+  });
+
+  afterAll(async () => {
+    await appClient?.close();
+    await appRunning?.close();
+  });
+
+  it("marks a tool for views only, with no view link", async () => {
+    const { tools } = await appClient.listTools();
+    const meta = tools.find((t) => t.name === "save_board")?._meta as { ui?: Record<string, unknown> } | undefined;
+    expect(meta?.ui).toEqual({ visibility: ["app"] });
+    expect(meta).not.toHaveProperty("openai/outputTemplate");
+  });
+
+  it("keeps the view link next to the visibility", async () => {
+    const { tools } = await appClient.listTools();
+    const meta = tools.find((t) => t.name === "board")?._meta as { ui?: Record<string, unknown> } | undefined;
+    expect(meta?.ui).toEqual({ resourceUri: "ui://app-server/board.html", visibility: ["model", "app"] });
+  });
+
+  it("still runs a tool that only views may call", async () => {
+    const result = await appClient.callTool({ name: "save_board", arguments: {} });
+    expect(result.structuredContent).toEqual({ saved: true });
+  });
+
+  it("puts the declared display modes in the view's HTML", async () => {
+    const board = await appClient.readResource({ uri: "ui://app-server/board.html" });
+    const html = (board.contents[0] as { text: string }).text;
+    expect(html).toContain(`<meta name="plugmcp-view" content='{"displayModes":["inline","fullscreen"]}'></head>`);
+    const plain = await appClient.readResource({ uri: "ui://app-server/plain.html" });
+    expect((plain.contents[0] as { text: string }).text).not.toContain("plugmcp-view");
+  });
+});

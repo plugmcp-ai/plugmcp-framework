@@ -7,7 +7,7 @@ const esc = (text: string) =>
 /** The page a person sees when they open the MCP address in a browser. */
 export function landingPage(server: PlugServer, url: string): string {
   const { name, title, description } = server.info;
-  const tools = [...server.tools.values()];
+  const tools = [...server.tools.values()].filter(({ config }) => !config.visibility || config.visibility.includes("model"));
   const snippets = installSnippets(name, url);
   const links = snippets
     .filter((s) => s.kind === "link")

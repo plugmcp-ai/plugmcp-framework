@@ -1,6 +1,6 @@
 {
   "name": "plugmcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The framework for building MCP servers and MCP apps. Local Studio with a canvas, schema-first tool testing, a chat that builds tools with your own key, and the PlugMCP directory built in.",
   "license": "MIT",
   "type": "module",
@@ -89,6 +89,7 @@
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "happy-dom": "^21.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^7.0.2",

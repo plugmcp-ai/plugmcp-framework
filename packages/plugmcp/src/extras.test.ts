@@ -59,6 +59,12 @@ describe("Claude Agent SDK adapter", () => {
     expect(allowedTools).toEqual(["mcp__my-shop__find_order"]);
     expect(mcpServers["my-shop"]).toMatchObject({ type: "sdk", name: "my-shop" });
   });
+  it("leaves out tools that only views may call", () => {
+    const server = createServer({ name: "My Shop" });
+    server.tool({ name: "find_order", description: "Find an order" }, () => "ok");
+    server.tool({ name: "save_draft", description: "Save a draft", visibility: ["app"] }, () => "ok");
+    expect(toAgentSdk(server).allowedTools).toEqual(["mcp__my-shop__find_order"]);
+  });
 });
 
 describe("account key", () => {

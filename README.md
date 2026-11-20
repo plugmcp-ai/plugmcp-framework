@@ -103,6 +103,31 @@ That is the whole integration. The framework bundles the view into one self-cont
 | `sendMessage(text)` | Put a message into the conversation |
 | `openLink(url)` | Ask the host to open a link |
 | `theme` | `light` or `dark`, from the host |
+| `partialInput` | The arguments while the model is still writing them, so the view can draw early |
+| `displayMode`, `availableDisplayModes`, `requestDisplayMode(mode)` | Go full screen and back |
+| `containerDimensions` | The size the host gives the view, when it says |
+| `updateModelContext(text, data?)` | Tell the model what the user did in the view, without starting a reply |
+
+### Full screen, streaming and tools for the view only
+
+```ts
+server.tool(
+  { name: "show_board", description: "Show the board", view: { displayModes: ["inline", "fullscreen"] } },
+  async () => ({ boardId: "b1" }),
+);
+
+// Only views may call this one. The model never sees it.
+server.tool(
+  { name: "save_board", description: "Save the board", input: z.object({ boardId: z.string() }), visibility: ["app"] },
+  async ({ boardId }) => ({ saved: boardId }),
+);
+```
+
+- `view.displayModes` lists the modes your view can draw. A host only offers full screen to a view that declares it.
+- `visibility: ["app"]` hides a tool from the model. Call it from a view with `callTool`.
+- `partialInput` holds the arguments while they stream in. Its last item may be cut short. It is `undefined` once `input` arrives. Not every host streams.
+- `updateModelContext` returns `false` when the host does not support it. Each call replaces the last one, and the model reads it with the user's next message.
+- Keep code that several views share outside `views/`, for example in `src/`. Every file at the top of `views/` is treated as a view.
 
 ## The Studio
 

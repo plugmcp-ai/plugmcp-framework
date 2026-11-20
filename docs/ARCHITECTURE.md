@@ -19,7 +19,7 @@ A developer installs one package, `plugmcp`. They write MCP servers in TypeScrip
 |---|---|---|
 | `packages/plugmcp` | The framework, the command line and the dev server. Ships the Studio as ready-made static files. | Not yet |
 | `packages/studio` | The Studio web app (React). Built once, then copied into `plugmcp`. Never built on a user's machine. | Never, it is internal |
-| `packages/create-plugmcp` | `npx create-plugmcp my-server`. Templates: `starter`, `blank`, `agent`. | Not yet |
+| `packages/create-plugmcp` | `npx create-plugmcp my-server`. Templates: `starter`, `blank`, `agent`. | Yes |
 
 `examples/weather` is a working project used for tests and screenshots.
 
@@ -52,7 +52,7 @@ There is one agent in the Studio, the Chat page, and it exists for testing. It i
 | File | Job |
 |---|---|
 | `index.ts` | `createServer({ name, description })` and `server.tool({ name, description, input }, handler)`. Input is a zod schema. A returned object becomes the tool result. Built on the official MCP TypeScript SDK v2. |
-| `view.tsx` | `useTool()` for views: the input, the output, `callTool`, `sendMessage`, the theme. Wraps the MCP Apps bridge. |
+| `view/index.tsx` | `useTool()` for views: the input while it streams and when complete, the output, `callTool`, `sendMessage`, display modes, `updateModelContext`, the theme. Wraps the MCP Apps bridge. |
 | `http.ts` | Serves a server over Streamable HTTP, with host and origin checks. |
 | `stdio.ts` | Serves a server over stdio. |
 | `agent.ts` | `toAgentSdk(server)`: the same tools inside the Claude Agent SDK, in process. |
@@ -143,7 +143,7 @@ There is no telemetry.
 - Several MCP servers in one folder, each with its own address, created from the Studio. Checked in the browser and by an automated test.
 - Studio: overview, schema-first tools, a canvas per server with dragging and in-place editing, a chat that builds tools, logs, connect, directory, keys.
 - Editing descriptions in place and saved tests.
-- 38 automated tests, typecheck and lint, on Node 20 and 22, Linux and Windows.
+- 47 automated tests, typecheck and lint, on Node 20 and 22, Linux and Windows.
 - A fresh install from the packed npm files: scaffold, install, dev, build, start over HTTP and stdio, and `plugmcp test`.
 
 ## What is missing or not checked
@@ -167,7 +167,7 @@ Built but not checked by hand:
 - The Studio on a real phone. Narrow layouts were checked in a desktop browser only.
 - Dragging cards on a touch screen.
 
-Not released:
+Released:
 
-- The GitHub repository is private.
-- Nothing is published to npm, so `npx create-plugmcp` does not work for the public yet.
+- The GitHub repository is public.
+- `plugmcp` and `create-plugmcp` are on npm.

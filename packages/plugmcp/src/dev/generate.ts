@@ -55,7 +55,7 @@ Rules for the view:
 - One file, a default-exported component. Import only from "react" and "plugmcp/view".
 - Inline styles only. Support both themes: dark uses text #F2EFE9 on #141414 with #2A2A2A borders, light uses text #141414 on #FFFFFF with #E2DFD9 borders. Accent #0099FF. Radius 14px on the card, 10px on controls. No emojis.
 - "output" is exactly the object the tool returns. Type it.
-- callTool(name, args) calls a tool on the same server and returns { output }. sendMessage(text) puts a message into the chat. Use them when they make the view more useful.
+- callTool(name, args) calls a tool on the same server and returns { output }. sendMessage(text) puts a message into the chat. Use them when they make the view more useful. useTool also gives partialInput (the arguments while they stream), displayMode and requestDisplayMode("fullscreen") for a tool with view: { displayModes: ["inline", "fullscreen"] }, and updateModelContext(text) to tell the model what the user did.
 - For charts and diagrams, draw inline SVG yourself and work out the layout in code. No chart or diagram packages.
 - Keep it compact: it is shown inline in a conversation, at most about 420px wide. A diagram may use the full width and scroll.`;
 

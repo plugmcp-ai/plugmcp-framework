@@ -54,6 +54,10 @@ export function Conversation({ id, body, title, lede, starters, gate, onState, n
   const { messages, sendMessage, status, stop, error, setMessages, clearError } = useChat({ id, transport });
   const latest = useRef(body);
   latest.current = body;
+  const viewContext = useRef("");
+  const keepContext = useCallback((text: string) => {
+    viewContext.current = text;
+  }, []);
 
   const byId = useMemo(() => new Map<string, Tool>(tools.map((tool) => [tool.id, tool])), [tools]);
 
@@ -74,7 +78,13 @@ export function Conversation({ id, body, title, lede, starters, gate, onState, n
     (text: string) => {
       if (!text.trim() || !latest.current) return;
       clearError();
-      void sendMessage({ text }, { body: latest.current });
+      // A view's latest context reaches the model with the next message, as in a chat client.
+      const context = viewContext.current;
+      viewContext.current = "";
+      void sendMessage({ text: context ? `${text}
+
+[Context from the view]
+${context}` : text }, { body: latest.current });
     },
     [clearError, sendMessage],
   );
@@ -122,10 +132,10 @@ export function Conversation({ id, body, title, lede, starters, gate, onState, n
                     // A tool the chat ran by name, for example one it has just written.
                     const asked = (call.input ?? {}) as { name?: string; arguments?: unknown };
                     const real = { ...call, toolName: asked.name ?? "tool", input: asked.arguments ?? {} };
-                    return <ToolCall key={call.toolCallId} call={real} tool={byId.get(real.toolName)} onMessage={send} />;
+                    return <ToolCall key={call.toolCallId} call={real} tool={byId.get(real.toolName)} onMessage={send} onContext={keepContext} />;
                   }
                   if (call.toolName.startsWith("studio_")) return <BuildStep key={call.toolCallId} call={call} />;
-                  return <ToolCall key={call.toolCallId} call={call} tool={byId.get(call.toolName)} onMessage={send} />;
+                  return <ToolCall key={call.toolCallId} call={call} tool={byId.get(call.toolName)} onMessage={send} onContext={keepContext} />;
                 }
                 return null;
               })}
@@ -224,7 +234,17 @@ function BuildStep({ call }: { call: ToolPart }) {
   );
 }
 
-function ToolCall({ call, tool, onMessage }: { call: ToolPart; tool: Tool | undefined; onMessage: (text: string) => void }) {
+function ToolCall({
+  call,
+  tool,
+  onMessage,
+  onContext,
+}: {
+  call: ToolPart;
+  tool: Tool | undefined;
+  onMessage: (text: string) => void;
+  onContext?: (text: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const done = call.state === "output-available";
   const failed = call.state === "output-error" || (done && (call.output as ToolResult | undefined)?.isError === true);
@@ -251,9 +271,17 @@ function ToolCall({ call, tool, onMessage }: { call: ToolPart; tool: Tool | unde
           ) : null}
         </div>
       ) : null}
-      {tool?.view && call.state !== "input-streaming" && !failed ? (
+      {tool?.view && !failed ? (
         <div className="toolcall-view">
-          <ViewFrame server={tool.local ? "local" : tool.server} uri={tool.view} input={input} result={result} onMessage={onMessage} />
+          <ViewFrame
+            server={tool.local ? "local" : tool.server}
+            uri={tool.view}
+            input={input}
+            result={result}
+            streaming={call.state === "input-streaming"}
+            onMessage={onMessage}
+            onContext={onContext}
+          />
         </div>
       ) : null}
     </div>

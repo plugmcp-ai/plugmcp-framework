@@ -1200,6 +1200,26 @@ button.rowlink:hover {
   background: transparent;
   color-scheme: dark;
 }
+.view-host.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: #141414;
+}
+.view-host.is-full .view-frame {
+  flex: 1;
+  min-height: 0;
+}
+/* Its own row above the view, so it never covers the view's own buttons. */
+.view-close {
+  align-self: flex-end;
+  margin: 8px 12px;
+}
+.view-context {
+  margin-top: 8px;
+}
 .schema-row {
   display: grid;
   grid-template-columns: 180px 90px minmax(0, 1fr);
