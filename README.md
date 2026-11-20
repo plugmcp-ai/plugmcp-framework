@@ -2,7 +2,7 @@
 
 **Build, test and ship MCP servers and MCP apps in TypeScript. Write a tool or ask the built-in chat to write it, see every server and tool on a canvas, edit schemas in place, save tests, and chat with your own model key. Open source, local, no account.**
 
-[![npm](https://img.shields.io/badge/npm-plugmcp-0099FF)](https://www.npmjs.com/package/plugmcp)
+[![npm](https://img.shields.io/npm/v/plugmcp?color=0099FF&label=npm)](https://www.npmjs.com/package/plugmcp)
 [![license](https://img.shields.io/badge/license-MIT-0099FF)](LICENSE)
 [![directory](https://img.shields.io/badge/directory-95%2C000%2B%20servers-0099FF)](https://plugmcp.ai/mcp)
 
