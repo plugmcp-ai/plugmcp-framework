@@ -6,7 +6,7 @@
 [![license](https://img.shields.io/badge/license-MIT-0099FF)](LICENSE)
 [![directory](https://img.shields.io/badge/directory-95%2C000%2B%20servers-0099FF)](https://plugmcp.ai/mcp)
 
-[Website](https://plugmcp.ai) · [MCP directory](https://plugmcp.ai/mcp) · [Host a server](https://plugmcp.ai/app) · [How it is built](docs/ARCHITECTURE.md)
+[Website](https://plugmcp.ai) · [Built with PlugMCP](#built-with-plugmcp) · [MCP directory](https://plugmcp.ai/mcp) · [Host a server](https://plugmcp.ai/app) · [How it is built](docs/ARCHITECTURE.md)
 
 PlugMCP is an open-source TypeScript framework for the [Model Context Protocol](https://modelcontextprotocol.io) (MCP), made by the team behind [plugmcp.ai](https://plugmcp.ai), the directory of 95,000+ MCP servers.
 
@@ -46,6 +46,26 @@ npm run dev
 - **A directory built in.** Try popular servers from [plugmcp.ai](https://plugmcp.ai/mcp) next to your own, and search 95,000+ before you build a duplicate.
 - **Works in agents.** The same tools run in-process in the Claude Agent SDK with one line, and over HTTP or stdio in anything else.
 - **Fast.** One process. The starter is ready in about 0.2 seconds, and edits reload without a restart.
+
+## Built with PlugMCP
+
+### Mind Map MCP
+
+**[plugmcp-ai/mindmap-mcp](https://github.com/plugmcp-ai/mindmap-mcp)**: mind maps and flowcharts inside the chat. The model sends ideas and how they connect, and the app draws them as one of nine structures in one of six styles. You edit and comment on the diagram, the model is told, and it answers by changing the same diagram.
+
+[![Mind Map MCP: a launch plan drawn as a mind map, then shown in other structures and styles](https://raw.githubusercontent.com/plugmcp-ai/mindmap-mcp/main/docs/demo.gif)](https://github.com/plugmcp-ai/mindmap-mcp)
+
+It is a full MCP App in one PlugMCP project, and a good one to read if you are building your own:
+
+| What it does | The PlugMCP feature | Where to look |
+|---|---|---|
+| Draws the diagram while the model is still writing it | `partialInput` | [`views/visualize.tsx`](https://github.com/plugmcp-ai/mindmap-mcp/blob/main/views/visualize.tsx) |
+| Goes full screen and back | `view: { displayModes }`, `requestDisplayMode` | [`server.ts`](https://github.com/plugmcp-ai/mindmap-mcp/blob/main/server.ts) |
+| Saves and syncs with tools the model never sees | `visibility: ["app"]`, `callTool` | [`server.ts`](https://github.com/plugmcp-ai/mindmap-mcp/blob/main/server.ts) |
+| Tells the model what the user changed | `updateModelContext`, `sendMessage` | [`src/feedback/channel.ts`](https://github.com/plugmcp-ai/mindmap-mcp/blob/main/src/feedback/channel.ts) |
+| Ships as one command with no other install | `plugmcp build`, `serveStdio`, `serveHttp` | [`src/cli.ts`](https://github.com/plugmcp-ai/mindmap-mcp/blob/main/src/cli.ts) |
+
+More examples are in [examples/](examples/). Built something with PlugMCP? Open a pull request that adds it here.
 
 ## A server
 
