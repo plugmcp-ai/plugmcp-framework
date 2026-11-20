@@ -13,11 +13,14 @@ import {
   IconSelector,
   IconSitemap,
   IconStack2,
+  IconTestPipe,
   IconTool,
 } from "@tabler/icons-react";
 import type { Icon } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { EditMcp } from "./EditMcp";
 import { NewMcp } from "./NewMcp";
+import { TestsPage } from "./Tests";
 import { NewTool } from "./NewTool";
 import { CanvasPage } from "./pages/CanvasPage";
 import { Connect } from "./pages/Connect";
@@ -52,6 +55,7 @@ function Shell() {
   const [menu, setMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addingMcp, setAddingMcp] = useState(false);
+  const [editingMcp, setEditingMcp] = useState(false);
   const [picker, setPicker] = useState(false);
   const [copied, copy] = useCopy();
   const space = useWorkspace();
@@ -74,6 +78,7 @@ function Shell() {
       label: "Test",
       items: [
         { id: "playground", label: "Chat", icon: IconMessage },
+        { id: "tests", label: "Tests", icon: IconTestPipe },
         { id: "logs", label: "Logs", icon: IconListDetails, badge: server?.calls || undefined },
       ],
     },
@@ -261,9 +266,10 @@ function Shell() {
               <div hidden={page !== "playground"} style={{ flex: 1, minHeight: 0, display: page === "playground" ? "flex" : undefined }}>
                 <Playground />
               </div>
-              {page === "home" ? <Home onNew={() => setAdding(true)} onNewMcp={() => setAddingMcp(true)} /> : null}
+              {page === "home" ? <Home onNew={() => setAdding(true)} onNewMcp={() => setAddingMcp(true)} onEditMcp={() => setEditingMcp(true)} /> : null}
+              {page === "tests" ? <TestsPage /> : null}
               {page === "tools" ? <Tools selected={route[1]} onNew={() => setAdding(true)} /> : null}
-              {page === "canvas" ? <CanvasPage selected={route[1]} onNew={() => setAdding(true)} /> : null}
+              {page === "canvas" ? <CanvasPage selected={route[1]} onNew={() => setAdding(true)} onEditMcp={() => setEditingMcp(true)} /> : null}
               {page === "logs" ? <Logs /> : null}
               {page === "directory" ? <DirectoryPage /> : null}
               {page === "connect" ? <Connect /> : null}
@@ -275,6 +281,7 @@ function Shell() {
 
       {adding ? <NewTool onClose={() => setAdding(false)} /> : null}
       {addingMcp ? <NewMcp onClose={() => setAddingMcp(false)} /> : null}
+      {editingMcp ? <EditMcp onClose={() => setEditingMcp(false)} /> : null}
     </div>
   );
 }

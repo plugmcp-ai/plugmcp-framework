@@ -13,7 +13,8 @@ function ServerNode({ data }: NodeProps<Node<{ name: string; description: string
     <div className={`node node-server${data.added ? " node-server-added" : ""}`}>
       <div className="node-kind">
         <IconServer2 size={13} stroke={1.75} /> {data.added ? "Added from the directory" : "MCP server"}
-        {data.added ? null : <span className="dot dot-ok" style={{ marginLeft: "auto" }} />}
+        {data.added ? null : <span className="node-edit">Edit</span>}
+        {data.added ? null : <span className="dot dot-ok" style={{ marginLeft: 6 }} />}
       </div>
       <div className="node-title node-title-lg truncate">{data.name}</div>
       <div className="node-sub clamp-2">{data.description ?? (data.added ? "Its tools are in your chat." : "No description yet.")}</div>
@@ -81,7 +82,7 @@ const readPlaces = (key: string): Places => {
 };
 
 /** The open MCP server drawn the way it works: the server on top, its tools under it. One canvas per server. */
-export function CanvasPage({ selected, onNew }: { selected?: string; onNew: () => void }) {
+export function CanvasPage({ selected, onNew, onEditMcp }: { selected?: string; onNew: () => void; onEditMcp: () => void }) {
   const { server, remote, tools, refresh } = useStudio();
   const space = useWorkspace();
   const tool = tools.find((item) => item.id === selected) ?? null;
@@ -165,6 +166,7 @@ export function CanvasPage({ selected, onNew }: { selected?: string; onNew: () =
           onNodeClick={(_, node) => {
             if (node.type === "tool") go(`/canvas/${(node.data.tool as Tool).id}`);
             if (node.type === "add") onNew();
+            if (node.id === "mcp") onEditMcp();
           }}
           onPaneClick={() => tool && go("/canvas")}
         >
@@ -189,7 +191,7 @@ export function CanvasPage({ selected, onNew }: { selected?: string; onNew: () =
             </button>
           ) : null}
         </div>
-        {tool ? null : <div className="canvas-hint">Drag a card to move it. Click a tool to see its schema, run it and change its code.</div>}
+        {tool ? null : <div className="canvas-hint">Drag a card to move it. Click the server to edit its name and description, or a tool to edit its schema, run it and change its code.</div>}
       </div>
 
       {tool ? (

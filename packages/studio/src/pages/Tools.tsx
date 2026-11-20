@@ -5,6 +5,7 @@ import { SchemaForm } from "../SchemaForm";
 import { ViewFrame } from "../ViewFrame";
 import { api } from "../api";
 import type { JsonSchema, Tool, ToolResult } from "../api";
+import { ToolTests, useTests } from "../Tests";
 import { useStudio } from "../state";
 import { CopyButton, Empty, Seg, errorText, go, plural } from "../ui";
 
@@ -177,7 +178,7 @@ export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: To
       <div className="tool-body">
         <div className="stack" style={{ minWidth: 0 }}>
           <Seg value={tab} options={tabs} onChange={setTab} />
-          {tab === "schema" ? <SchemaPane tool={tool} /> : null}
+          {tab === "schema" ? <SchemaPane tool={tool} onSaved={onSaved} /> : null}
           {tab === "code" ? <Editor path={entry} onSaved={onSaved} /> : null}
           {tab === "view" && tool.viewFile ? <Editor path={tool.viewFile} onSaved={onSaved} /> : null}
         </div>
@@ -190,6 +191,8 @@ export function ToolDetail({ tool, entry, onSaved, back = "/tools" }: { tool: To
 }
 
 function TestPane({ tool }: { tool: Tool }) {
+  const saved = useTests(tool.name);
+  const [kept, setKept] = useState(false);
   const [args, setArgs] = useState<Record<string, unknown>>({});
   const [sent, setSent] = useState<Record<string, unknown> | null>(null);
   const [result, setResult] = useState<ToolResult | undefined>();
@@ -203,6 +206,7 @@ function TestPane({ tool }: { tool: Tool }) {
     setBusy(true);
     setError(null);
     setResult(undefined);
+    setKept(false);
     setSent(args);
     setRun((count) => count + 1);
     try {
@@ -259,6 +263,25 @@ function TestPane({ tool }: { tool: Tool }) {
             <CopyButton value={json} label="Copy the result" />
           ) : null}
         </div>
+        {result && sent && tool.local ? (
+          <div className="save-test">
+            <span className="small muted grow">{kept ? "Saved. Run it again any time, here or with plugmcp test." : "Keep this call as a test you can run after every change."}</span>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={kept}
+              onClick={() => {
+                const first = Object.values(sent).find((value) => typeof value === "string" || typeof value === "number");
+                void saved
+                  .save({ tool: tool.name, name: first !== undefined ? `${tool.name} with ${String(first).slice(0, 60)}` : "", arguments: sent, expectError: result.isError === true })
+                  .then(() => setKept(true))
+                  .catch((cause: unknown) => setError(errorText(cause)));
+              }}
+            >
+              {kept ? "Saved" : "Save as test"}
+            </button>
+          </div>
+        ) : null}
         <div className="panel-pad stack">
           {error ? <p className="small fault">{error}</p> : null}
           {!sent && !error ? (
@@ -273,6 +296,7 @@ function TestPane({ tool }: { tool: Tool }) {
           {tool.view && tool.viewFile && sent && show === "view" ? <p className="hint">Edit {tool.viewFile} and this updates without a restart.</p> : null}
         </div>
       </div>
+      <ToolTests state={saved} />
     </div>
   );
 }
@@ -283,7 +307,65 @@ const typeName = (schema: JsonSchema): string => {
   return type === "array" && schema.items ? `${typeName(schema.items)} list` : (type ?? "any");
 };
 
-function SchemaPane({ tool }: { tool: Tool }) {
+/** The description of one input, with a way to change it without opening the code. */
+function FieldText({ tool, name, description, onSaved }: { tool: Tool; name: string; description: string | undefined; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(description ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!editing) {
+    return (
+      <p className="field-text">
+        {description ?? "No description yet. The model needs one to know what to send."}{" "}
+        {tool.local ? (
+          <button
+            type="button"
+            className="link small"
+            style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }}
+            onClick={() => {
+              setDraft(description ?? "");
+              setEditing(true);
+            }}
+          >
+            <IconPencil size={12} stroke={1.75} style={{ verticalAlign: -1 }} /> {description ? "Edit" : "Add"}
+          </button>
+        ) : null}
+      </p>
+    );
+  }
+  return (
+    <form
+      className="stack"
+      style={{ gap: 8 }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setBusy(true);
+        setError(null);
+        api
+          .describeInput(tool.name, name, draft)
+          .then(() => {
+            onSaved();
+            setEditing(false);
+          })
+          .catch((cause: unknown) => setError(errorText(cause)))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <textarea className="input" rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} aria-label={`Description of ${name}`} placeholder="What to send, with an example" autoFocus />
+      {error ? <p className="small fault">{error}</p> : null}
+      <div className="row">
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !draft.trim()}>
+          {busy ? "Saving" : "Save"}
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function SchemaPane({ tool, onSaved }: { tool: Tool; onSaved: () => void }) {
   const schema = tool.inputSchema;
   const fields = Object.entries(schema.properties ?? {});
   const [raw, setRaw] = useState(false);
@@ -304,7 +386,7 @@ function SchemaPane({ tool }: { tool: Tool }) {
                 <span className="pill">{typeName(field)}</span>
                 <span className={`pill${required ? " pill-signal" : ""}`}>{required ? "Required" : "Optional"}</span>
               </div>
-              <p className="field-text">{field.description ?? "No description. Add .describe(...) in the code so the model knows what to send."}</p>
+              <FieldText tool={tool} name={name} description={field.description} onSaved={onSaved} />
               {field.enum ? (
                 <div className="row-wrap">
                   {field.enum.map((value) => (

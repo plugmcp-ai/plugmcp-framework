@@ -7,6 +7,7 @@ import {
   IconListDetails,
   IconMessage,
   IconPlayerPlay,
+  IconPencil,
   IconPlus,
   IconSitemap,
   IconStack2,
@@ -18,7 +19,7 @@ import type { CallRecord, DirectoryServer } from "../api";
 import { useStudio, useWorkspace } from "../state";
 import { CopyButton, Empty, Glyph, PageHead, SectionTitle, ago, plural } from "../ui";
 
-export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => void }) {
+export function Home({ onNew, onNewMcp, onEditMcp }: { onNew: () => void; onNewMcp: () => void; onEditMcp: () => void }) {
   const { server, model, remote } = useStudio();
   const space = useWorkspace();
   const [calls, setCalls] = useState<CallRecord[]>([]);
@@ -101,6 +102,9 @@ export function Home({ onNew, onNewMcp }: { onNew: () => void; onNewMcp: () => v
           </div>
         </div>
         <div className="row-wrap">
+          <button type="button" className="btn btn-ghost" onClick={onEditMcp}>
+            <IconPencil size={15} stroke={1.75} /> Edit
+          </button>
           <a className="btn btn-outline" href="#/canvas">
             <IconSitemap size={15} stroke={1.75} /> Canvas
           </a>

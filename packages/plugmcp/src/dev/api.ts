@@ -14,8 +14,9 @@ import { PROVIDERS, publicSettings, readSettings, writeSettings } from "./keys.j
 import type { ProviderId } from "./keys.js";
 import { SERVER_ID, listViews } from "./project.js";
 import type { Project } from "./project.js";
-import { callLog, callsFor, clearCalls, readAgents, writeAgents } from "./store.js";
-import type { Agent } from "./store.js";
+import { setInputDescription, setServerInfo } from "./edit.js";
+import { callLog, callsFor, clearCalls, readAgents, readTests, writeAgents, writeTests } from "./store.js";
+import type { Agent, SavedTest } from "./store.js";
 
 /** Everything `plugmcp dev` serves: one or more MCP servers in one folder. */
 export interface Hub {
@@ -348,6 +349,72 @@ async function describe(context: ApiContext) {
   };
 }
 
+/** Rewrite the server file with `change`, load it, and put it back if the new code does not load. */
+async function editEntry(context: ApiContext, change: (source: string) => string): Promise<void> {
+  const path = join(context.project.root, context.project.entry);
+  const source = readFileSync(path, "utf8");
+  const next = change(source);
+  if (next === source) return;
+  writeFileSync(path, next);
+  try {
+    await context.reload();
+  } catch (error) {
+    writeFileSync(path, source);
+    await context.reload().catch(() => undefined);
+    throw new Error(`That did not load, so nothing was changed. (${message(error)})`);
+  }
+}
+
+export interface TestOutcome {
+  id: string;
+  tool: string;
+  name: string;
+  ok: boolean;
+  ms: number;
+  /** Why it failed, in words. Empty when it passed. */
+  reason: string;
+  /** The start of what the tool returned. */
+  output: string;
+}
+
+/** Run saved tests against the running server. With no ids, every test of the server. */
+export async function runSavedTests(context: ApiContext, ids?: string[]): Promise<TestOutcome[]> {
+  const tests = readTests(context.project).filter((test) => !ids || ids.includes(test.id));
+  if (tests.length === 0) return [];
+  const client = await connect({ name: "local", url: context.mcpUrl() });
+  const out: TestOutcome[] = [];
+  try {
+    for (const test of tests) {
+      const started = performance.now();
+      let failed = false;
+      let output = "";
+      try {
+        const result = (await client.callTool({ name: test.tool, arguments: test.arguments ?? {} })) as McpResult;
+        failed = result.isError === true;
+        const words = (result.content ?? []).filter((block) => block.type === "text").map((block) => block.text).join("\n");
+        output = words || JSON.stringify(result.structuredContent ?? {});
+      } catch (error) {
+        failed = true;
+        output = message(error);
+      }
+      const wantError = test.expectError === true;
+      const missing = test.contains && !output.toLowerCase().includes(test.contains.toLowerCase());
+      const reason =
+        failed !== wantError
+          ? wantError
+            ? "It was expected to fail and it did not."
+            : "The tool returned an error."
+          : missing
+            ? `The result does not contain "${test.contains}".`
+            : "";
+      out.push({ id: test.id, tool: test.tool, name: test.name, ok: !reason, ms: Math.round(performance.now() - started), reason, output: output.slice(0, 2000) });
+    }
+  } finally {
+    await client.close();
+  }
+  return out;
+}
+
 /** Start a new, empty MCP server in servers/<id>/. */
 function createMcp(home: string, input: { name?: string; description?: string }): string {
   const title = (input.name ?? "").trim();
@@ -562,6 +629,46 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, hub: 
           throw new Error(`That did not load, so nothing was changed. (${message(error)})`);
         }
         return json(res, 200, { saved: true }), true;
+      }
+      case "POST /tools/describe-input": {
+        const body = await readBody<{ tool?: string; field?: string; description?: string }>(req);
+        const description = (body.description ?? "").trim();
+        if (!TOOL_NAME.test(body.tool ?? "") || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(body.field ?? "")) throw new Error("Unknown tool or input.");
+        if (!description) throw new Error("Write a description.");
+        await editEntry(context, (source) => setInputDescription(source, body.tool as string, body.field as string, description));
+        return json(res, 200, { saved: true }), true;
+      }
+      case "POST /workspace/describe": {
+        const body = await readBody<{ title?: string; description?: string }>(req);
+        await editEntry(context, (source) => setServerInfo(source, { title: body.title, description: body.description }));
+        return json(res, 200, { saved: true }), true;
+      }
+      case "GET /tests":
+        return json(res, 200, { tests: readTests(project) }), true;
+      case "POST /tests": {
+        const body = await readBody<Partial<SavedTest>>(req);
+        if (!TOOL_NAME.test(body.tool ?? "")) throw new Error("Unknown tool.");
+        const tests = readTests(project);
+        const existing = tests.find((test) => test.id === body.id);
+        const test: SavedTest = {
+          id: existing?.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          tool: body.tool as string,
+          name: (body.name ?? "").trim().slice(0, 120) || `${body.tool} test ${tests.filter((item) => item.tool === body.tool).length + 1}`,
+          arguments: body.arguments && typeof body.arguments === "object" ? body.arguments : {},
+          ...(body.expectError === true ? { expectError: true } : {}),
+          ...(body.contains?.trim() ? { contains: body.contains.trim().slice(0, 400) } : {}),
+        };
+        writeTests(project, existing ? tests.map((item) => (item.id === test.id ? test : item)) : [...tests, test]);
+        return json(res, 200, { test }), true;
+      }
+      case "DELETE /tests": {
+        const id = url.searchParams.get("id");
+        writeTests(project, readTests(project).filter((test) => test.id !== id));
+        return json(res, 200, { removed: id }), true;
+      }
+      case "POST /tests/run": {
+        const body = await readBody<{ ids?: string[] }>(req).catch(() => ({}) as { ids?: string[] });
+        return json(res, 200, { results: await runSavedTests(context, Array.isArray(body.ids) ? body.ids : undefined) }), true;
       }
       case "POST /generate": {
         const body = await readBody<{ description?: string; view?: boolean; provider?: ProviderId; model?: string }>(req);

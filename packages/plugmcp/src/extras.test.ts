@@ -135,6 +135,37 @@ describe("dev server", () => {
     }
   }, 30_000);
 
+  it("edits descriptions in the code and runs saved tests", async () => {
+    const json = { "content-type": "application/json" };
+    const post = (path: string, body: unknown) => api(path, { method: "POST", headers: json, body: JSON.stringify(body) });
+    const { id } = (await (await post("/workspace/servers", { name: `Edit ${Date.now()}` })).json()) as { id: string };
+    const at = (path: string) => `${path}${path.includes("?") ? "&" : "?"}mcp=${id}`;
+    try {
+      expect((await post(at("/tools"), { name: "echo", description: "Say it back.", view: false })).status).toBe(200);
+
+      // An input description and the server's own title and description, without opening the code.
+      expect((await post(at("/tools/describe-input"), { tool: "echo", field: "text", description: "What to say back, for example hello" })).status).toBe(200);
+      expect((await post(at("/workspace/describe"), { title: "Echo desk", description: "Repeats what it is told." })).status).toBe(200);
+      const info = (await (await api(at("/info"))).json()) as { title: string; description: string; tools: Array<{ inputSchema: { properties: Record<string, { description?: string }> } }> };
+      expect(info).toMatchObject({ title: "Echo desk", description: "Repeats what it is told." });
+      expect(info.tools[0]?.inputSchema.properties.text?.description).toBe("What to say back, for example hello");
+      expect((await post(at("/tools/describe-input"), { tool: "echo", field: "missing", description: "x" })).status).toBe(400);
+
+      // Saved tests: one that passes, one whose expected text is not in the result.
+      const good = (await (await post(at("/tests"), { tool: "echo", arguments: { text: "hello" }, contains: "HELLO" })).json()) as { test: { id: string; name: string } };
+      await post(at("/tests"), { tool: "echo", name: "wrong text", arguments: { text: "hello" }, contains: "goodbye" });
+      const { results } = (await (await post(at("/tests/run"), {})).json()) as { results: Array<{ name: string; ok: boolean; reason: string }> };
+      expect(results.map((result) => result.ok)).toEqual([true, false]);
+      expect(results[1]?.reason).toContain("goodbye");
+      const only = (await (await post(at("/tests/run"), { ids: [good.test.id] })).json()) as { results: unknown[] };
+      expect(only.results).toHaveLength(1);
+      expect((await api(at(`/tests?id=${good.test.id}`), { method: "DELETE" })).status).toBe(200);
+      expect(((await (await api(at("/tests"))).json()) as { tests: unknown[] }).tests).toHaveLength(1);
+    } finally {
+      rmSync(resolve(example, "servers", id), { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("saves an agent, writes its code and removes it", async () => {
     const post = (body: unknown) => api("/agents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const name = `Test agent ${Date.now()}`;

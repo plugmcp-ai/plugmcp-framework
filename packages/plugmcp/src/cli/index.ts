@@ -51,6 +51,7 @@ ${bold("plugmcp")}  Build MCP servers and MCP Apps. https://plugmcp.ai
     plugmcp dev                 Run the server and open the Studio. No account needed.
     plugmcp build               Bundle the server and its views into dist/.
     plugmcp start               Run the build over HTTP. Add --stdio for stdio.
+    plugmcp test                Run the tests saved in the Studio. Exits with 1 if one fails.
 
   ${bold("Directory")}
     plugmcp search <words>      Search 70,000+ MCP servers on plugmcp.ai.
@@ -111,6 +112,35 @@ ${dev.servers.map((server) => `  ${dim("MCP")}      ${blue(server.mcpUrl)}${dev.
       process.on("SIGINT", stop);
       process.on("SIGTERM", stop);
       return;
+    }
+
+    case "test": {
+      const { startDev } = await import("../dev/dev.js");
+      const dev = await startDev({ root, entry, port: port ?? 4733, studio: false });
+      let failed = 0;
+      let total = 0;
+      try {
+        for (const server of dev.servers) {
+          const response = await fetch(`http://127.0.0.1:${dev.port}/__studio/api/tests/run?mcp=${encodeURIComponent(server.id)}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          });
+          const { results = [], error } = (await response.json()) as { results?: Array<{ tool: string; name: string; ok: boolean; ms: number; reason: string }>; error?: string };
+          if (error) throw new Error(error);
+          if (results.length && dev.servers.length > 1) console.log(`\n  ${bold(server.id)}`);
+          for (const result of results) {
+            total += 1;
+            if (!result.ok) failed += 1;
+            console.log(`  ${result.ok ? green("pass") : red("fail")}  ${result.tool}  ${dim(result.name)}  ${dim(`${result.ms} ms`)}${result.ok ? "" : `\n        ${result.reason}`}`);
+          }
+        }
+      } finally {
+        await dev.close();
+      }
+      if (total === 0) console.log(`  No tests yet. Run a tool in the Studio and press "Save as test".`);
+      else console.log(`\n  ${failed ? red(`${failed} of ${total} failed`) : green(`${total} passed`)}`);
+      process.exit(failed ? 1 : 0);
     }
 
     case "build": {

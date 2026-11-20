@@ -35,6 +35,21 @@ export function writeJson(project: Project, file: string, value: unknown): void 
 export const readAgents = (project: Project): Agent[] => readJson(join(dir(project), "agents.json"), [] as Agent[]);
 export const writeAgents = (project: Project, agents: Agent[]): void => writeJson(project, "agents.json", agents);
 
+/** A saved call of a tool and what it should give back. `plugmcp test` and the Studio run these. */
+export interface SavedTest {
+  id: string;
+  tool: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  /** The call should end in an error. Default false. */
+  expectError?: boolean;
+  /** Text the result must contain, compared without regard to case. */
+  contains?: string;
+}
+
+export const readTests = (project: Project): SavedTest[] => readJson(join(dir(project), "tests.json"), [] as SavedTest[]);
+export const writeTests = (project: Project, tests: SavedTest[]): void => writeJson(project, "tests.json", tests);
+
 /** One tool call seen by the dev server, from the Studio or from any connected client. */
 export interface CallRecord {
   id: number;

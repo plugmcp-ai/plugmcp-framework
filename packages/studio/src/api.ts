@@ -42,6 +42,26 @@ export type Info =
     }
   | { ok: false; id: string; file: string; mcpUrl: string; project: string; entry: string; error: string };
 
+/** A saved call of a tool and what it should give back. */
+export interface SavedTest {
+  id: string;
+  tool: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  expectError?: boolean;
+  contains?: string;
+}
+
+export interface TestOutcome {
+  id: string;
+  tool: string;
+  name: string;
+  ok: boolean;
+  ms: number;
+  reason: string;
+  output: string;
+}
+
 /** The folder plugmcp dev runs in, and every MCP server in it. */
 export interface Workspace {
   name: string;
@@ -177,6 +197,12 @@ export const api = {
     request<{ total: number; servers: DirectoryServer[] }>(`/directory?q=${encodeURIComponent(q)}${remote ? "&remote=1" : ""}`),
   addTool: (body: { name: string; description: string; view: boolean }) => post<{ files: string[] }>("/tools", body),
   describeTool: (name: string, description: string) => post<{ saved: boolean }>("/tools/describe", { name, description }),
+  describeInput: (tool: string, field: string, description: string) => post<{ saved: boolean }>("/tools/describe-input", { tool, field, description }),
+  describeServer: (body: { title: string; description: string }) => post<{ saved: boolean }>("/workspace/describe", body),
+  tests: () => request<{ tests: SavedTest[] }>("/tests"),
+  saveTest: (test: Partial<SavedTest> & { tool: string }) => post<{ test: SavedTest }>("/tests", test),
+  removeTest: (id: string) => request<unknown>(`/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  runTests: (ids?: string[]) => post<{ results: TestOutcome[] }>("/tests/run", ids ? { ids } : {}),
   ship: () => request<Ship>("/ship"),
   generate: (body: { description: string; view: boolean; provider: string; model: string }) =>
     post<{ name: string; files: string[] }>("/generate", body),
