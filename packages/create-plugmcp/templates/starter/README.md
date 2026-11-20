@@ -15,6 +15,7 @@ This starts the server and opens the Studio in your browser:
 - **Tools** lists your tools, schema first. Run one, see its view, and edit its code. New tool writes one from a description.
 - **Canvas** draws the MCP server with its tools under it.
 - **Chat** talks to your server with your own OpenAI, Anthropic or other key, and builds new tools and MCP apps when you ask.
+- **Tests** runs the calls you saved with "Save as test". `npm test` runs them in a terminal.
 - **Logs** shows every call the server handled.
 - **Connect** has install buttons for Cursor, VS Code, Claude Code and more.
 - **Directory** shows popular servers from [plugmcp.ai](https://plugmcp.ai/mcp), where 95,000+ are listed.

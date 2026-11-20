@@ -82,7 +82,8 @@ Each server has its own tools, views, agents and added directory servers. Model 
 | `chat.ts` | The chat loop. Runs in Node with the AI SDK, so a model key never reaches the browser. |
 | `generate.ts` | The prompt that teaches a model how to write a tool and a view. |
 | `keys.ts` | Reads keys from `.env` or `~/.plugmcp/keys.json`. |
-| `store.ts` | The call log: the last 300 calls, kept in `.plugmcp/calls.json`. |
+| `store.ts` | The call log (the last 300 calls, in `.plugmcp/calls.json`) and saved tests (`.plugmcp/tests.json`). |
+| `edit.ts` | Exact edits to the server file: an input's description, the server's name and description. Refuses code it cannot change safely. |
 | `views.ts` | Turns a view file into a small page. |
 
 How the Studio writes code:
@@ -101,6 +102,7 @@ The Studio can only open the server file, files in `views/` and files in `agents
 | Overview | See every MCP server as a card, start a new one, and see the open server at a glance. |
 | Tools | List of tools. Each opens on its schema (every input, its type and meaning), with a form to run it beside it, and tabs for its code and view code. |
 | Canvas | One canvas for each MCP server: the server on top, its tools under it. Drag cards, click a tool to see its schema and edit it beside the canvas. |
+| Tests | Saved calls of tools and what they must return. Run all in one click, or with `plugmcp test`. |
 | Chat | The one test agent for the open server, on your own key. It can build tools and apps. You can give it instructions and turn tools on and off. |
 | Logs | Every tool call, from the Studio or any connected client. |
 | Connect | Install buttons and commands for Cursor, VS Code, Claude Code, Codex. |
@@ -111,7 +113,7 @@ The switcher at the top of the sidebar chooses which MCP server the Studio works
 
 ### 5. The command line (`packages/plugmcp/src/cli`)
 
-`dev`, `build`, `start`, `search`, `add`, `list`, `login`, `deploy --url`. `list` and `deploy` have `--dry-run`.
+`dev`, `build`, `start`, `test`, `search`, `add`, `list`, `login`, `deploy --url`. `list` and `deploy` have `--dry-run`.
 
 ## Where data lives
 
@@ -140,14 +142,15 @@ There is no telemetry.
 - Servers, tools, views, HTTP and stdio, build and start.
 - Several MCP servers in one folder, each with its own address, created from the Studio. Checked in the browser and by an automated test.
 - Studio: overview, schema-first tools, a canvas per server with dragging and in-place editing, a chat that builds tools, logs, connect, directory, keys.
-- 25 automated tests, typecheck and lint.
+- Editing descriptions in place and saved tests.
+- 38 automated tests, typecheck and lint, on Node 20 and 22, Linux and Windows.
+- A fresh install from the packed npm files: scaffold, install, dev, build, start over HTTP and stdio, and `plugmcp test`.
 
 ## What is missing or not checked
 
 Not built:
 
 - **Delete or rename an MCP server, and delete a tool, from the Studio.** Today you delete the folder or the code by hand.
-- **Edit an MCP server's name and description from the Studio.** Today it is done in the Code tab.
 - **Connect a private hosted server with a key.** The Studio adds hosted servers that need no sign-in. A field for a key or sign-in (OAuth) is not built, so a keyed PlugMCP server cannot be added to the chat yet.
 - **Real code hosting on plugmcp.ai.** `deploy` only wraps a server that is already online. This needs work in the private product.
 - **Browser sign-in for `plugmcp login`.** Today the user pastes an account key.
@@ -160,7 +163,6 @@ Not built:
 
 Built but not checked by hand:
 
-- The first-run screen that asks for a model key was not seen in the browser, because a key is present on the test machine.
 - Running the tools inside the Claude Agent SDK with a real Anthropic key (the adapter is covered by a test, not by a live run).
 - The Studio on a real phone. Narrow layouts were checked in a desktop browser only.
 - Dragging cards on a touch screen.

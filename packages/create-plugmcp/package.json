@@ -14,12 +14,29 @@
     "mcp",
     "model-context-protocol",
     "mcp-server",
+    "mcp-framework",
+    "mcp-sdk",
     "mcp-apps",
+    "mcp-ui",
+    "mcp-inspector",
+    "mcp-testing",
+    "mcp-tools",
+    "ai-agents",
+    "tool-calling",
+    "claude",
+    "chatgpt",
+    "cursor",
+    "openai",
+    "anthropic",
+    "llm",
+    "agent",
+    "ai",
+    "sdk",
+    "cli",
+    "typescript",
     "create",
     "scaffold",
-    "template",
-    "claude",
-    "chatgpt"
+    "starter"
   ],
   "engines": {
     "node": ">=20.19"
@@ -39,5 +56,8 @@
     "lint": "node --check index.js",
     "test": "node -e \"\"",
     "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE','LICENSE')\""
+  },
+  "bugs": {
+    "url": "https://github.com/plugmcp-ai/sdk/issues"
   }
 }
